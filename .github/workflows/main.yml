@@ -18,10 +18,7 @@ jobs:
           git config --global user.email "1580811831@qq.com"
 
       - name: Auto Commit and Push
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/CHNISam/Remake-AI-Assistant-Pro.git
           git add .
           git commit -m "Daily auto commit: $(date)" || echo "No changes to commit"
-          git push origin main
+          git push || echo "Nothing to push"
