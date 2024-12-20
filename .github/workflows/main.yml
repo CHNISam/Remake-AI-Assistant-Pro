@@ -1,0 +1,23 @@
+name: Auto Daily Commit
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 每天 UTC 时间 00:00 执行
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "CHNISam"
+          git config --global user.email "1580811831@qq.com"
+
+      - name: Auto Commit and Push
+        run: |
+          git add .
+          git commit -m "Daily auto commit: $(date)"
+          git push
