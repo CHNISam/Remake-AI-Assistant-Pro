@@ -276,36 +276,44 @@ export default {
     // AI回复函数
     async fetchAIResponse(conversation) {
       try {
-        const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              {
-                role: 'system',
-                content: systemPrompt.trim(),
+          return new Promise((resolve, reject) => {
+            wx.request({
+              url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+              method: 'POST',
+              header: {
+                'Content-Type': 'application/json',
+                'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
               },
-              ...conversation.map(msg => ({
-                role: msg.role,
-                content: msg.content
-              }))
-            ],
-            stream: false
-          })
-        });
-        if (!response.ok) {
-          throw new Error(`API请求失败，状态码：${response.status}`);
+              data: {
+                model: this.model,
+                messages: [
+                  {
+                    role: 'system',
+                    content: systemPrompt.trim(),
+                  },
+                  ...conversation.map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                  }))
+                ],
+                stream: false
+              },
+              success: (res) => {
+                if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+                  resolve(res.data.choices[0].message.content);
+                } else {
+                  reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+                }
+              },
+              fail: (error) => {
+                reject(new Error(`请求失败: ${error}`));
+              }
+            });
+          });
+        } catch (error) {
+          console.error('AI回复错误:', error);
+          return '抱歉，无法获取AI的回复。';
         }
-        const data = await response.json();
-        return data.choices[0].message.content;
-      } catch (error) {
-        console.error('AI回复错误:', error);
-        return '抱歉，无法获取AI的回复。';
-      }
     },
 
     // 从XML文档加载聊天记录
