@@ -2,6 +2,285 @@
 const common_vendor = require("../../common/vendor.js");
 const config_promptConfig = require("../../config/promptConfig.js");
 const common_assets = require("../../common/assets.js");
+const contacts = [
+  {
+    name: "三月七",
+    desc: "今天也是三月七~",
+    icon: "/static/images/三月七-小.png",
+    sessions: [
+      {
+        id: "session1",
+        name: "与三月七的对话",
+        messages: [
+          {
+            id: "msg1",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "你好呀",
+            next: "msg2"
+          },
+          {
+            id: "msg2",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "pic",
+            src: "/static/images/三月七-骄傲.gif",
+            msg: "[骄傲]",
+            next: "msg3"
+          },
+          {
+            id: "msg3",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "欢迎来到星铁聊天记录生成器（测试版）",
+            next: "msg4"
+          },
+          {
+            id: "msg4",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "这个网页可以制作星穹铁道风格的聊天记录",
+            next: "msg5"
+          },
+          {
+            id: "msg5",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "就像你现在看见的一样",
+            next: "msg6"
+          },
+          {
+            id: "msg6",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "并且可以像游戏里那样交互哦",
+            next: "msg7"
+          },
+          {
+            id: "msg7",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "想要学习制作一个短信会话吗？",
+            next: "msg8"
+          },
+          {
+            id: "msg8",
+            type: "select",
+            msgType: "text",
+            options: [
+              {
+                msg: "想",
+                next: "msg9"
+              },
+              {
+                msg: "不想",
+                next: "msg14"
+              }
+            ]
+          },
+          {
+            id: "msg9",
+            type: "right",
+            name: "穹",
+            icon: "/static/images/穹.png",
+            msgType: "text",
+            msg: "想啊，很想啊",
+            next: "msg10"
+          },
+          {
+            id: "msg10",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "好嘞",
+            next: "msg11"
+          },
+          {
+            id: "msg11",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "https://github.com/cubeww/star-rail-msg-maker/blob/master/README.md",
+            next: "msg12"
+          },
+          {
+            id: "msg12",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "来看吧",
+            next: null
+          },
+          {
+            id: "msg14",
+            type: "right",
+            name: "穹",
+            icon: "/static/images/穹.png",
+            msgType: "text",
+            msg: "说的好，但是我不想",
+            next: "msg15"
+          },
+          {
+            id: "msg15",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七-哭.gif",
+            msgType: "text",
+            msg: "[哭]",
+            next: "msg16"
+          },
+          {
+            id: "msg16",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "没关系",
+            next: "msg17"
+          },
+          {
+            id: "msg17",
+            type: "left",
+            time: "1.0",
+            name: "三月七",
+            icon: "/static/images/三月七.png",
+            msgType: "text",
+            msg: "等你想的时候可以随时来问我~",
+            next: null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    name: "丹恒",
+    desc: "理性的守护者",
+    icon: "/static/images/丹恒.png",
+    sessions: [
+      {
+        id: "session2",
+        name: "与丹恒的对话",
+        messages: [
+          {
+            id: "msg1",
+            type: "left",
+            time: "1.0",
+            name: "丹恒",
+            icon: "/static/images/丹恒.png",
+            msgType: "text",
+            msg: "你好，我是丹恒。",
+            next: "msg2"
+          },
+          {
+            id: "msg2",
+            type: "left",
+            time: "1.0",
+            name: "丹恒",
+            icon: "/static/images/丹恒.png",
+            msgType: "pic",
+            src: "/static/images/饮门.png",
+            msg: "[认真]",
+            next: "msg3"
+          },
+          {
+            id: "msg3",
+            type: "left",
+            time: "1.0",
+            name: "丹恒",
+            icon: "/static/images/丹恒.png",
+            msgType: "text",
+            msg: "欢迎来到星穹铁道。",
+            next: "msg4"
+          },
+          {
+            id: "msg4",
+            type: "select",
+            msgType: "text",
+            options: [
+              {
+                msg: "请介绍你自己",
+                next: "msg5"
+              },
+              {
+                msg: "星穹列车是做什么的？",
+                next: "msg9"
+              }
+            ]
+          },
+          {
+            id: "msg5",
+            type: "right",
+            name: "开拓者",
+            icon: "/static/images/星.png",
+            msgType: "text",
+            msg: "能介绍下你吗？",
+            next: "msg6"
+          },
+          {
+            id: "msg6",
+            type: "left",
+            time: "1.0",
+            name: "丹恒",
+            icon: "/static/images/丹恒.png",
+            msgType: "text",
+            msg: "我是星穹列车的守护者之一。",
+            next: null
+          },
+          {
+            id: "msg9",
+            type: "right",
+            name: "穹",
+            icon: "/static/images/穹.png",
+            msgType: "text",
+            msg: "星穹列车是做什么的？",
+            next: "msg10"
+          },
+          {
+            id: "msg10",
+            type: "left",
+            time: "1.0",
+            name: "丹恒",
+            icon: "/static/images/丹恒.png",
+            msgType: "text",
+            msg: "这是穿越宇宙的列车，探索未知。",
+            next: null
+          }
+        ]
+      }
+    ]
+  }
+];
+const tutorialData = {
+  contacts
+};
 const _sfc_main = {
   name: "MessageApp",
   data() {
@@ -94,32 +373,84 @@ const _sfc_main = {
         return "抱歉，无法获取AI的回复。";
       }
     },
-    // 从XML文档加载聊天记录
-    loadXML(xml) {
+    // 【新增】从本地 JSON 加载聊天记录（代替 loadXML）
+    loadJSON(json) {
       this.contacts = [];
-      const persons = xml.getElementsByTagName("person");
-      for (let person of persons) {
+      if (!json || !json.contacts) {
+        console.warn("JSON 数据为空或格式不正确");
+        return;
+      }
+      for (let person of json.contacts) {
         const newPerson = {
-          name: person.getAttribute("name"),
-          icon: person.getAttribute("icon"),
-          desc: person.getAttribute("desc"),
+          name: person.name,
+          icon: person.icon,
+          desc: person.desc,
           sessions: [],
           select: false,
           hover: false
         };
-        this.contacts.push(newPerson);
-        const sessions = person.getElementsByTagName("session");
-        for (let session of sessions) {
+        for (let session of person.sessions || []) {
           newPerson.sessions.push({
-            name: session.firstElementChild.textContent,
-            messages: [],
-            sessionNode: session,
-            nextNode: session.firstElementChild,
+            id: session.id || "unnamed_session",
+            name: session.name || "未命名会话",
+            messages: session.messages || [],
             select: false,
-            hover: false,
-            finish: false
+            hover: false
           });
         }
+        this.contacts.push(newPerson);
+      }
+      if (this.contacts.length > 0) {
+        this.currentPerson = this.contacts[0];
+        this.contacts[0].select = true;
+        if (this.contacts[0].sessions.length > 0) {
+          this.currentSession = this.contacts[0].sessions[0];
+          this.currentSession.select = true;
+          this.sessionSelected = true;
+          this.sessionChanged = true;
+          this.sendMessageById(this.currentSession, this.currentSession.messages[0].id);
+        }
+      }
+    },
+    // 根据消息ID发送消息
+    async sendMessageById(session, messageId) {
+      const msg = session.messages.find((m) => m.id === messageId);
+      if (!msg) {
+        console.warn(`消息ID ${messageId} 未找到`);
+        return;
+      }
+      if (msg.type === "left" || msg.type === "right") {
+        const newMessage = common_vendor.reactive({
+          type: msg.type,
+          name: msg.name,
+          icon: msg.icon,
+          msgType: msg.msgType,
+          msg: msg.msg,
+          src: msg.src || null,
+          appear: true,
+          finish: true,
+          isLoading: false
+        });
+        this.addMessageToSession(session, newMessage);
+        this.scrollToBottom();
+        if (msg.next) {
+          setTimeout(() => {
+            this.sendMessageById(session, msg.next);
+          }, parseFloat(msg.time || "1") * 1e3 + 500);
+        }
+      } else if (msg.type === "select") {
+        const selectMessage = common_vendor.reactive({
+          type: "select",
+          msgType: msg.msgType,
+          options: msg.options.map((option) => ({
+            msg: option.msg,
+            next: option.next
+          }))
+        });
+        this.addMessageToSession(session, selectMessage);
+        this.currentMessage = selectMessage;
+        this.isSelectClose = false;
+        this.scrollToBottom();
       }
     },
     addMessageToSession(session, newMessage) {
@@ -129,99 +460,27 @@ const _sfc_main = {
         session.messages.splice(0, session.messages.length - MAX_MESSAGES);
       }
     },
-    async sendNextNode(session) {
-      if (!session.nextNode)
-        return;
-      switch (session.nextNode.tagName) {
-        case "left":
-        case "right": {
-          const msgObj = common_vendor.reactive({
-            type: session.nextNode.tagName,
-            name: session.nextNode.getAttribute("name"),
-            icon: session.nextNode.getAttribute("icon"),
-            msgType: session.nextNode.getAttribute("type"),
-            msg: session.nextNode.textContent,
-            src: session.nextNode.getAttribute("src"),
-            appear: false,
-            finish: false,
-            isLoading: false
-          });
-          this.currentMessage = msgObj;
-          const finishTime = session.nextNode.tagName === "left" ? parseInt(session.nextNode.getAttribute("time") || "2") * 1e3 : 250;
-          this.addMessageToSession(session, msgObj);
-          setTimeout(() => {
-            msgObj.appear = true;
-            this.$forceUpdate();
-          }, 100);
-          setTimeout(() => {
-            msgObj.finish = true;
-          }, finishTime + 100);
-          let next = null;
-          if (session.nextNode.nextElementSibling != null) {
-            next = session.nextNode.nextElementSibling;
-          } else {
-            next = session.nextNode;
-            let flag = false;
-            while (next.parentNode.tagName !== "session") {
-              if (next.parentNode.tagName === "option") {
-                next = next.parentNode.parentNode;
-              }
-              if (next.nextElementSibling != null) {
-                next = next.nextElementSibling;
-                flag = true;
-                break;
-              }
-            }
-            if (!flag) {
-              next = null;
-            }
-          }
-          if (next != null) {
-            session.nextNode = next;
-            setTimeout(() => {
-              this.sendNextNode(session);
-            }, finishTime + 600);
-          } else {
-            setTimeout(() => {
-              session.finish = true;
-            }, finishTime + 600);
-          }
-          break;
-        }
-        case "select": {
-          const options = [];
-          for (let option of session.nextNode.children) {
-            options.push({
-              msg: option.getAttribute("msg"),
-              nextNode: option.firstElementChild,
-              click: false,
-              hover: false
-            });
-          }
-          const msgObj = common_vendor.reactive({
-            type: "select",
-            msgType: session.nextNode.getAttribute("type"),
-            options
-          });
-          this.addMessageToSession(session, msgObj);
-          this.currentMessage = msgObj;
-          this.isSelectClose = false;
-          break;
-        }
-        default:
-          console.warn(`Unhandled tag: ${session.nextNode.tagName}`);
-      }
-    },
     async clickOption(option) {
       if (this.isSelectClose) {
         return;
       }
-      option.click = true;
       this.isSelectClose = true;
-      setTimeout(async () => {
-        this.currentSession.nextNode = option.nextNode;
-        await this.sendNextNode(this.currentSession);
-      }, 250);
+      const newMessage = common_vendor.reactive({
+        type: "right",
+        name: "开拓者",
+        msgType: "text",
+        msg: option.msg,
+        icon: "/static/images/穹.png",
+        appear: true,
+        finish: true
+      });
+      this.addMessageToSession(this.currentSession, newMessage);
+      this.scrollToBottom();
+      if (option.next) {
+        setTimeout(() => {
+          this.sendMessageById(this.currentSession, option.next);
+        }, 250);
+      }
     },
     selectPerson(person) {
       if (!person.select) {
@@ -242,13 +501,6 @@ const _sfc_main = {
           s.select = false;
         }
       }
-      if (this.currentSession != null) {
-        for (let m of this.currentSession.messages) {
-          if (m.finish === false) {
-            m.finish = true;
-          }
-        }
-      }
       session.select = true;
       this.sessionSelected = true;
       this.sessionChanged = false;
@@ -257,9 +509,12 @@ const _sfc_main = {
       }, 100);
       this.currentPerson = person;
       this.currentSession = session;
-      setTimeout(() => {
-        this.sendNextNode(this.currentSession);
-      }, 250);
+      this.currentSession.messages = [];
+      if (this.currentSession.messages.length > 0) {
+        this.sendMessageById(this.currentSession, this.currentSession.messages[0].id);
+      } else {
+        console.warn("当前会话没有消息");
+      }
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -287,10 +542,12 @@ const _sfc_main = {
       return this.currentSession.messages.map((msg) => {
         if (msg.type === "left") {
           return { role: "assistant", content: msg.msg, name: msg.name };
-        } else {
+        } else if (msg.type === "right") {
           return { role: "user", content: msg.msg, name: msg.name };
+        } else {
+          return null;
         }
-      });
+      }).filter((msg) => msg !== null);
     },
     toggleSendButton() {
       this.showSendButton = this.userInput.trim() !== "";
@@ -299,7 +556,7 @@ const _sfc_main = {
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput)
         return;
-      const userMsg = {
+      const userMsg = common_vendor.reactive({
         type: "right",
         name: "开拓者",
         msgType: "text",
@@ -307,7 +564,7 @@ const _sfc_main = {
         icon: "/static/images/穹.png",
         appear: true,
         finish: true
-      };
+      });
       this.addMessageToSession(this.currentSession, userMsg);
       this.scrollToBottom();
       const aiMsg = common_vendor.reactive({
@@ -341,17 +598,10 @@ const _sfc_main = {
     }
   },
   mounted() {
-    fetch("/public/tutorial.xml").then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      return response.text();
-    }).then((str) => {
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(str, "text/xml");
-      this.loadXML(xml.documentElement);
-    }).catch((error) => {
-      console.error("Error loading XML:", error);
+    try {
+      this.loadJSON(tutorialData);
+    } catch (error) {
+      console.error("Error loading JSON:", error);
       this.contacts = [
         {
           name: "测试联系人",
@@ -361,24 +611,21 @@ const _sfc_main = {
           hover: false,
           sessions: [
             {
+              id: "test_session",
               name: "测试会话",
               messages: [
                 {
+                  id: "test_msg1",
                   type: "left",
                   name: "测试NPC",
                   icon: "/static/images/icon.png",
                   msgType: "text",
                   msg: "你好，我是测试NPC，有什么需要帮助的吗？",
-                  appear: true,
-                  finish: true,
-                  isLoading: false
+                  next: null
                 }
               ],
-              finish: false,
               select: true,
-              hover: false,
-              nextNode: null,
-              sessionNode: null
+              hover: false
             }
           ]
         }
@@ -387,7 +634,7 @@ const _sfc_main = {
       this.currentPerson = this.contacts[0];
       this.currentSession = this.contacts[0].sessions[0];
       this.sessionChanged = true;
-    });
+    }
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) {

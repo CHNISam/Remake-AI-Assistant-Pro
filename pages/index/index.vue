@@ -222,8 +222,10 @@
 </template>
 
 <script>
-import { reactive, ref, createApp } from 'vue';
+import { reactive } from 'vue';
 import { systemPrompt } from '/config/promptConfig.js'; // 导入系统提示
+// 直接导入本地 JSON
+import tutorialData from '/public/tutorial.json'; 
 
 export default {
   name: 'MessageApp',
@@ -273,81 +275,147 @@ export default {
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
     },
+
     // AI回复函数
     async fetchAIResponse(conversation) {
       try {
-          return new Promise((resolve, reject) => {
-            wx.request({
-              url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-              method: 'POST',
-              header: {
-                'Content-Type': 'application/json',
-                'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
-              },
-              data: {
-                model: this.model,
-                messages: [
-                  {
-                    role: 'system',
-                    content: systemPrompt.trim(),
-                  },
-                  ...conversation.map(msg => ({
-                    role: msg.role,
-                    content: msg.content
-                  }))
-                ],
-                stream: false
-              },
-              success: (res) => {
-                if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-                  resolve(res.data.choices[0].message.content);
-                } else {
-                  reject(new Error(`API请求失败，状态码：${res.statusCode}`));
-                }
-              },
-              fail: (error) => {
-                reject(new Error(`请求失败: ${error}`));
+        return new Promise((resolve, reject) => {
+          wx.request({
+            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            method: 'POST',
+            header: {
+              'Content-Type': 'application/json',
+              'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
+            },
+            data: {
+              model: this.model,
+              messages: [
+                {
+                  role: 'system',
+                  content: systemPrompt.trim(),
+                },
+                ...conversation.map(msg => ({
+                  role: msg.role,
+                  content: msg.content
+                }))
+              ],
+              stream: false
+            },
+            success: (res) => {
+              if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+                resolve(res.data.choices[0].message.content);
+              } else {
+                reject(new Error(`API请求失败，状态码：${res.statusCode}`));
               }
-            });
+            },
+            fail: (error) => {
+              reject(new Error(`请求失败: ${error}`));
+            }
           });
-        } catch (error) {
-          console.error('AI回复错误:', error);
-          return '抱歉，无法获取AI的回复。';
-        }
+        });
+      } catch (error) {
+        console.error('AI回复错误:', error);
+        return '抱歉，无法获取AI的回复。';
+      }
     },
 
-    // 从XML文档加载聊天记录
-    loadXML(xml) {
-      this.contacts = []; // 清空数组先
+    // 【新增】从本地 JSON 加载聊天记录（代替 loadXML）
+    loadJSON(json) {
+      this.contacts = []; // 先清空
 
-      // 遍历所有联系人
-      const persons = xml.getElementsByTagName('person');
+      if (!json || !json.contacts) {
+        console.warn('JSON 数据为空或格式不正确');
+        return;
+      }
 
-      for (let person of persons) {
+      // 遍历 contacts
+      for (let person of json.contacts) {
         const newPerson = {
-          name: person.getAttribute('name'),
-          icon: person.getAttribute('icon'),
-          desc: person.getAttribute('desc'),
+          name: person.name,
+          icon: person.icon,
+          desc: person.desc,
           sessions: [],
           select: false,
           hover: false,
         };
 
-        this.contacts.push(newPerson);
-        // 遍历联系人中的所有会话，并构建必要信息
-        const sessions = person.getElementsByTagName('session');
-
-        for (let session of sessions) {
+        // 遍历所有 sessions
+        for (let session of person.sessions || []) {
+          // 这里直接用 JSON 内的数据
           newPerson.sessions.push({
-            name: session.firstElementChild.textContent,
-            messages: [],
-            sessionNode: session,
-            nextNode: session.firstElementChild,
+            id: session.id || 'unnamed_session',
+            name: session.name || '未命名会话',
+            messages: session.messages || [],
             select: false,
             hover: false,
-            finish: false,
           });
         }
+
+        this.contacts.push(newPerson);
+      }
+
+      // 如果有联系人，默认选第一个联系人和第一个会话
+      if (this.contacts.length > 0) {
+        this.currentPerson = this.contacts[0];
+        this.contacts[0].select = true;
+
+        if (this.contacts[0].sessions.length > 0) {
+          this.currentSession = this.contacts[0].sessions[0];
+          this.currentSession.select = true;
+          this.sessionSelected = true;
+          this.sessionChanged = true;
+
+          // 开始发送第一条消息
+          this.sendMessageById(this.currentSession, this.currentSession.messages[0].id);
+        }
+      }
+    },
+
+    // 根据消息ID发送消息
+    async sendMessageById(session, messageId) {
+      const msg = session.messages.find(m => m.id === messageId);
+      if (!msg) {
+        console.warn(`消息ID ${messageId} 未找到`);
+        return;
+      }
+
+      if (msg.type === 'left' || msg.type === 'right') {
+        const newMessage = reactive({
+          type: msg.type,
+          name: msg.name,
+          icon: msg.icon,
+          msgType: msg.msgType,
+          msg: msg.msg,
+          src: msg.src || null,
+          appear: true,
+          finish: true,
+          isLoading: false,
+        });
+
+        this.addMessageToSession(session, newMessage);
+        this.scrollToBottom();
+
+        // 等待一定时间后发送下一条消息
+        if (msg.next) {
+          setTimeout(() => {
+            this.sendMessageById(session, msg.next);
+          }, parseFloat(msg.time || '1') * 1000 + 500);
+        }
+
+      } else if (msg.type === 'select') {
+        const selectMessage = reactive({
+          type: 'select',
+          msgType: msg.msgType,
+          options: msg.options.map(option => ({
+            msg: option.msg,
+            next: option.next,
+          })),
+        });
+
+        this.addMessageToSession(session, selectMessage);
+        this.currentMessage = selectMessage;
+        this.isSelectClose = false;
+        this.scrollToBottom();
       }
     },
 
@@ -360,115 +428,32 @@ export default {
       }
     },
 
-    async sendNextNode(session) {
-      if (!session.nextNode) return;
-
-      switch (session.nextNode.tagName) {
-        case 'left':
-        case 'right': {
-          const msgObj = reactive({
-            type: session.nextNode.tagName,
-            name: session.nextNode.getAttribute('name'),
-            icon: session.nextNode.getAttribute('icon'),
-            msgType: session.nextNode.getAttribute('type'),
-            msg: session.nextNode.textContent,
-            src: session.nextNode.getAttribute('src'),
-            appear: false,
-            finish: false,
-            isLoading: false,
-          });
-
-          this.currentMessage = msgObj;
-          const finishTime =
-            session.nextNode.tagName === 'left'
-              ? parseInt(session.nextNode.getAttribute('time') || '2') * 1000
-              : 250;
-
-          this.addMessageToSession(session, msgObj);
-
-          setTimeout(() => {
-            msgObj.appear = true;
-            this.$forceUpdate();
-          }, 100);
-
-          setTimeout(() => {
-            msgObj.finish = true;
-          }, finishTime + 100);
-
-          let next = null;
-          if (session.nextNode.nextElementSibling != null) {
-            next = session.nextNode.nextElementSibling;
-          } else {
-            next = session.nextNode;
-            let flag = false;
-            while (next.parentNode.tagName !== 'session') {
-              if (next.parentNode.tagName === 'option') {
-                next = next.parentNode.parentNode;
-              }
-
-              if (next.nextElementSibling != null) {
-                next = next.nextElementSibling;
-                flag = true;
-                break;
-              }
-            }
-
-            if (!flag) {
-              next = null;
-            }
-          }
-
-          if (next != null) {
-            session.nextNode = next;
-            setTimeout(() => {
-              this.sendNextNode(session);
-            }, finishTime + 600);
-          } else {
-            setTimeout(() => {
-              session.finish = true;
-            }, finishTime + 600);
-          }
-
-          break;
-        }
-
-        case 'select': {
-          const options = [];
-          for (let option of session.nextNode.children) {
-            options.push({
-              msg: option.getAttribute('msg'),
-              nextNode: option.firstElementChild,
-              click: false,
-              hover: false,
-            });
-          }
-          const msgObj = reactive({
-            type: 'select',
-            msgType: session.nextNode.getAttribute('type'),
-            options,
-          });
-          this.addMessageToSession(session, msgObj);
-          this.currentMessage = msgObj;
-          this.isSelectClose = false;
-          break;
-        }
-
-        default:
-          console.warn(`Unhandled tag: ${session.nextNode.tagName}`);
-      }
-    },
-
     async clickOption(option) {
       if (this.isSelectClose) {
         return;
       }
 
-      option.click = true;
       this.isSelectClose = true;
-      setTimeout(async () => {
-        this.currentSession.nextNode = option.nextNode;
-        await this.sendNextNode(this.currentSession);
-      }, 250);
+
+      const newMessage = reactive({
+        type: 'right',
+        name: '开拓者',
+        msgType: 'text',
+        msg: option.msg,
+        icon: "/static/images/穹.png",
+        appear: true,
+        finish: true
+      });
+
+      this.addMessageToSession(this.currentSession, newMessage);
+      this.scrollToBottom();
+
+      // 发送对应的下一条消息
+      if (option.next) {
+        setTimeout(() => {
+          this.sendMessageById(this.currentSession, option.next);
+        }, 250);
+      }
     },
 
     selectPerson(person) {
@@ -493,14 +478,6 @@ export default {
         }
       }
 
-      if (this.currentSession != null) {
-        for (let m of this.currentSession.messages) {
-          if (m.finish === false) {
-            m.finish = true;
-          }
-        }
-      }
-
       session.select = true;
       this.sessionSelected = true;
 
@@ -512,9 +489,16 @@ export default {
       this.currentPerson = person;
       this.currentSession = session;
 
-      setTimeout(() => {
-        this.sendNextNode(this.currentSession);
-      }, 250);
+      // 清空当前会话的消息显示
+      this.currentSession.messages = [];
+
+      // 开始发送当前会话的第一条消息
+      if (this.currentSession.messages.length > 0) {
+        this.sendMessageById(this.currentSession, this.currentSession.messages[0].id);
+      } else {
+        // 如果会话没有消息，可以添加一条默认消息或其他处理
+        console.warn('当前会话没有消息');
+      }
     },
 
     scrollToBottom() {
@@ -533,11 +517,9 @@ export default {
       if (!cm) return;
 
       const st = cm.scrollTop;
-
       if (st < this.lastScrollTop) {
         this.autoScroll = false;
       }
-
       this.lastScrollTop = st;
     },
 
@@ -546,10 +528,12 @@ export default {
       return this.currentSession.messages.map((msg) => {
         if (msg.type === "left") {
           return { role: 'assistant', content: msg.msg, name: msg.name };
-        } else {
+        } else if (msg.type === "right") {
           return { role: 'user', content: msg.msg, name: msg.name };
+        } else {
+          return null;
         }
-      });
+      }).filter(msg => msg !== null);
     },
 
     toggleSendButton() {
@@ -560,7 +544,7 @@ export default {
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput) return;
 
-      const userMsg = {
+      const userMsg = reactive({
         type: 'right',
         name: '开拓者',
         msgType: 'text',
@@ -568,9 +552,8 @@ export default {
         icon: "/static/images/穹.png",
         appear: true,
         finish: true
-      };
+      });
       this.addMessageToSession(this.currentSession, userMsg);
-
       this.scrollToBottom();
 
       // 创建AI消息对象并显示加载动画
@@ -590,15 +573,15 @@ export default {
       const conversation = this.generateChatContext();
 
       try {
-        const aiReply = await this.fetchAIResponse(conversation); // 获取 AI 回复
-        aiMsg.isLoading = false; // 停止加载动画
-        aiMsg.finish = true; // 设置消息完成
-        aiMsg.msg = aiReply; // 更新消息内容
-        this.scrollToBottom(); // 滚动到底部
-      } catch (error) {
-        aiMsg.isLoading = false; // 停止加载动画
+        const aiReply = await this.fetchAIResponse(conversation); 
+        aiMsg.isLoading = false;
         aiMsg.finish = true;
-        aiMsg.msg = '抱歉，无法获取AI的回复。'; // 错误消息提示
+        aiMsg.msg = aiReply;
+        this.scrollToBottom();
+      } catch (error) {
+        aiMsg.isLoading = false;
+        aiMsg.finish = true;
+        aiMsg.msg = '抱歉，无法获取AI的回复。';
         this.scrollToBottom();
       }
 
@@ -607,66 +590,48 @@ export default {
     },
   },
   mounted() {
-    fetch('/public/tutorial.xml')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+    // ❶ 直接加载本地 JSON 数据
+    try {
+      this.loadJSON(tutorialData);
+    } catch (error) {
+      console.error('Error loading JSON:', error);
+
+      // 如果加载失败，使用原先的测试数据兜底
+      this.contacts = [
+        {
+          name: "测试联系人",
+          icon: "/static/images/icon.png",
+          desc: "这是一个测试联系人描述",
+          select: true,
+          hover: false,
+          sessions: [
+            {
+              id: "test_session",
+              name: "测试会话",
+              messages: [
+                {
+                  id: "test_msg1",
+                  type: "left",
+                  name: "测试NPC",
+                  icon: "/static/images/icon.png",
+                  msgType: "text",
+                  msg: "你好，我是测试NPC，有什么需要帮助的吗？",
+                  next: null
+                }
+              ],
+              select: true,
+              hover: false,
+            }
+          ]
         }
-        return response.text();
-      })
-      .then((str) => {
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(str, 'text/xml');
-        this.loadXML(xml.documentElement);
+      ];
+      this.sessionSelected = true;
+      this.currentPerson = this.contacts[0];
+      this.currentSession = this.contacts[0].sessions[0];
+      this.sessionChanged = true;
+    }
 
-        // if (this.contacts.length > 0) {
-        //   this.selectPerson(this.contacts[0]);
-        //   if (this.contacts[0].sessions.length > 0) {
-        //     this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
-        //   }
-        // }
-      })
-      .catch((error) => {
-        console.error('Error loading XML:', error);
-
-        this.contacts = [
-          {
-            name: "测试联系人",
-            icon: "/static/images/icon.png",
-            desc: "这是一个测试联系人描述",
-            select: true,
-            hover: false,
-            sessions: [
-              {
-                name: "测试会话",
-                messages: [
-                  {
-                    type: "left",
-                    name: "测试NPC",
-                    icon: "/static/images/icon.png",
-                    msgType: "text",
-                    msg: "你好，我是测试NPC，有什么需要帮助的吗？",
-                    appear: true,
-                    finish: true,
-                    isLoading: false,
-                  }
-                ],
-                finish: false,
-                select: true,
-                hover: false,
-                nextNode: null,
-                sessionNode: null
-              }
-            ]
-          }
-        ];
-
-        this.sessionSelected = true;
-        this.currentPerson = this.contacts[0];
-        this.currentSession = this.contacts[0].sessions[0];
-        this.sessionChanged = true;
-      });
-
+    // 保持你的滚动逻辑
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) {
@@ -684,7 +649,6 @@ export default {
   },
 };
 </script>
-
 <style scoped>
 /* 保持之前的样式不变 */
 .form {
