@@ -223,7 +223,8 @@
 
 <script>
 import { reactive, ref, createApp } from 'vue';
-import { systemPrompt } from '/config/promptConfig.js'; // 导入系统提示
+// 引入刚才写好的 prompt 配置
+import { characterPrompts } from '/config/promptConfig.js'; 
 
 export default {
   name: 'MessageApp',
@@ -234,7 +235,6 @@ export default {
       showSendButton: false, // 控制发送按钮的显示
       // 大模型API相关
       model: 'glm-4-flash', // 模型名称（固定值）
-      messages: [],
       // 联系人数据
       contacts: [],
       // 表示是否已经选中过一个会话，用于改变聊天窗底色
@@ -276,32 +276,42 @@ export default {
     // AI回复函数
     async fetchAIResponse(conversation) {
       try {
-        const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              {
-                role: 'system',
-                content: systemPrompt.trim(),
-              },
-              ...conversation.map(msg => ({
-                role: msg.role,
-                content: msg.content
-              }))
-            ],
-            stream: false
-          })
+        return new Promise((resolve, reject) => {
+          wx.request({
+            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            method: 'POST',
+            header: {
+              'Content-Type': 'application/json',
+              'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
+            },
+            data: {
+              model: this.model,
+              messages: [
+                {
+                  role: 'system',
+                  content: characterPrompts[this.currentPerson.name]
+                    ? characterPrompts[this.currentPerson.name].systemPrompt
+                    : '这是一个默认的 systemPrompt，用于兜底处理。'
+                },
+                ...conversation.map(msg => ({
+                  role: msg.role,
+                  content: msg.content
+                }))
+              ],
+              stream: false
+            },
+            success: (res) => {
+              if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+                resolve(res.data.choices[0].message.content);
+              } else {
+                reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+              }
+            },
+            fail: (error) => {
+              reject(new Error(`请求失败: ${error}`));
+            }
+          });
         });
-        if (!response.ok) {
-          throw new Error(`API请求失败，状态码：${response.status}`);
-        }
-        const data = await response.json();
-        return data.choices[0].message.content;
       } catch (error) {
         console.error('AI回复错误:', error);
         return '抱歉，无法获取AI的回复。';
@@ -373,7 +383,7 @@ export default {
           this.currentMessage = msgObj;
           const finishTime =
             session.nextNode.tagName === 'left'
-              ? parseInt(session.nextNode.getAttribute('time') || '2') * 1000
+              ? parseFloat(session.nextNode.getAttribute('time') || '2') * 1000
               : 250;
 
           this.addMessageToSession(session, msgObj);
@@ -568,10 +578,12 @@ export default {
       // 创建AI消息对象并显示加载动画
       const aiMsg = reactive({
         type: 'left',
-        name: '三月七',
+        name: this.currentPerson.name, // 动态读取当前联系人的名字
         msgType: 'text',
         msg: '',
-        icon: "/static/images/三月七.png",
+        icon: characterPrompts[this.currentPerson.name]
+          ? characterPrompts[this.currentPerson.name].defaultIcon
+          : '/static/images/default.png', // 动态读取当前联系人的头像，默认图片用于兜底
         appear: true,
         isLoading: true, // 加载中状态
         finish: false,
@@ -611,23 +623,23 @@ export default {
         const xml = parser.parseFromString(str, 'text/xml');
         this.loadXML(xml.documentElement);
 
-        // if (this.contacts.length > 0) {
-        //   this.selectPerson(this.contacts[0]);
-        //   if (this.contacts[0].sessions.length > 0) {
-        //     this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
-        //   }
-        // }
+        // 自动选择第一个联系人和第一个会话（可选）
+        if (this.contacts.length > 0) {
+          this.selectPerson(this.contacts[0]);
+          if (this.contacts[0].sessions.length > 0) {
+            this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
+          }
+        }
       })
       .catch((error) => {
         console.error('Error loading XML:', error);
 
+        // 提供一个默认联系人和会话
         this.contacts = [
           {
             name: "测试联系人",
             icon: "/static/images/icon.png",
             desc: "这是一个测试联系人描述",
-            select: true,
-            hover: false,
             sessions: [
               {
                 name: "测试会话",
@@ -676,7 +688,6 @@ export default {
   },
 };
 </script>
-
 <style scoped>
 /* 保持之前的样式不变 */
 .form {
