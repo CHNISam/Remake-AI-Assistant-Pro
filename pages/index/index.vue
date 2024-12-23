@@ -209,17 +209,11 @@
           </div>
         </div>
       </div>
-      <!-- 页尾声明 -->
-      <div class="foot">
-        <div>
-          Star Rail Message Maker v0.5
-          <a href="https://github.com/cubeww/star-rail-msg-maker">Github</a>
-        </div>
-        <div>B站：@冰块Cube</div>
-      </div>
     </div>
   </div>
 </template>
+
+
 
 <script>
 import { reactive, ref, createApp } from 'vue';
@@ -235,6 +229,10 @@ export default {
       showSendButton: false, // 控制发送按钮的显示
       // 大模型API相关
       model: 'glm-4-flash', // 模型名称（固定值）
+      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ',  // 你申请到的token，比如 "76915445xxxx"
+      // 天气API相关
+      amapApiKey: '79452bccf16e1cd79877f79614b3bd23', 
+
       // 联系人数据
       contacts: [],
       // 表示是否已经选中过一个会话，用于改变聊天窗底色
@@ -273,49 +271,175 @@ export default {
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
     },
-    // AI回复函数
-    async fetchAIResponse(conversation) {
-      try {
-        return new Promise((resolve, reject) => {
-          wx.request({
-            url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-            method: 'POST',
-            header: {
-              'Content-Type': 'application/json',
-              'Authorization': '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ' // 请替换为你的实际 API 密钥
-            },
-            data: {
-              model: this.model,
-              messages: [
-                {
-                  role: 'system',
-                  content: characterPrompts[this.currentPerson.name]
-                    ? characterPrompts[this.currentPerson.name].systemPrompt
-                    : '这是一个默认的 systemPrompt，用于兜底处理。'
-                },
-                ...conversation.map(msg => ({
-                  role: msg.role,
-                  content: msg.content
-                }))
-              ],
-              stream: false
-            },
-            success: (res) => {
-              if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-                resolve(res.data.choices[0].message.content);
+
+    // ------------------- 优化：大模型意图识别 -------------------
+    /**
+     * 调用大模型判断用户消息是否为"天气"查询
+     * 输出只有两个可能： "weather" 或 "other"
+     */
+    async checkMessageIntentWithLLM(userMsg) {
+      return new Promise((resolve) => {
+        const systemPrompt = `
+你是一个分类器，用户会发来一句话。你需要判断这句话是否是对“天气”的询问。
+如果用户是在查询某地的天气，请只回答 "weather"。
+如果不是在查询天气，包括只是感慨天气不错，请只回答 "other"。
+只输出这一个词，不要带多余内容。
+        `.trim();
+
+        wx.request({
+          url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiToken}` // 确保使用正确的格式
+          },
+          data: {
+            model: this.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userMsg }
+            ],
+            stream: false
+          },
+          success: (res) => {
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              // 拿到大模型返回的文本
+              const content = res.data.choices[0].message.content.trim().toLowerCase();
+              if (content === 'weather') { // 使用严格比较
+                resolve('weather');
               } else {
-                reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+                resolve('other');
               }
-            },
-            fail: (error) => {
-              reject(new Error(`请求失败: ${error}`));
+            } else {
+              console.error('意图识别API请求失败，状态码：', res.statusCode);
+              resolve('other');
             }
-          });
+          },
+          fail: (error) => {
+            console.error('意图识别时出现错误:', error);
+            resolve('other');
+          }
         });
-      } catch (error) {
+      });
+    },
+
+    // -------------- 优化后的大模型回复函数 (普通对话) --------------
+    async fetchAIResponse(conversation) {
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiToken}` // 确保使用正确的格式
+          },
+          data: {
+            model: this.model,
+            messages: [
+              {
+                role: 'system',
+                content: characterPrompts[this.currentPerson.name]
+                  ? characterPrompts[this.currentPerson.name].systemPrompt
+                  : '这是一个默认的 systemPrompt，用于兜底处理。'
+              },
+              ...conversation.map(msg => ({
+                role: msg.role,
+                content: msg.content
+              }))
+            ],
+            stream: false
+          },
+          success: (res) => {
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              resolve(res.data.choices[0].message.content);
+            } else {
+              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+            }
+          },
+          fail: (error) => {
+            reject(new Error(`请求失败: ${error}`));
+          }
+        });
+      }).catch((error) => {
         console.error('AI回复错误:', error);
         return '抱歉，无法获取AI的回复。';
+      });
+    },
+
+    // ------------------- 优化后的天气查询函数 (前端直接请求高德API) -------------------
+    async fetchWeather(cityCode) {
+      return new Promise((resolve, reject) => {
+        const url = 'https://restapi.amap.com/v3/weather/weatherInfo';
+        const params = {
+          key: this.amapApiKey,
+          city: cityCode,
+          extensions: 'base',
+          output: 'json'
+        };
+
+        wx.request({
+          url: url,
+          method: 'GET',
+          data: params,
+          success: (res) => {
+            const data = res.data;
+            if (data.status === '1' && data.lives && data.lives.length > 0) {
+              resolve(data.lives[0]);
+            } else {
+              console.error('天气查询失败，错误信息:', data.info);
+              resolve(null);
+            }
+          },
+          fail: (error) => {
+            console.error('天气查询失败:', error);
+            resolve(null);
+          }
+        });
+      });
+    },
+
+    // ------------------- 扩展：更全面的城市名映射 -------------------
+    getCityCode(userInput) {
+      const cityMap = {
+        '北京': '110000',
+        '上海': '310000',
+        '广州': '440100',
+        '深圳': '440300',
+        '杭州': '330100',
+        '成都': '510100',
+        '重庆': '500000',
+        '天津': '120000',
+        '武汉': '420100',
+        '西安': '610100',
+        '南京': '320100',
+        '苏州': '320500',
+        '长沙': '430100',
+        '青岛': '370200',
+        '大连': '210200',
+        '厦门': '350200',
+		'广东': '440000',
+		'江苏': '320000',
+		'四川': '510000',
+		'河北': '130000',
+		'河南': '410000',
+		'山东': '370000',
+		'辽宁': '210000',
+		'浙江': '330000',
+		'湖北': '420000',
+		'湖南': '430000',
+		'福建': '350000',
+		'安徽': '340000',
+		'江西': '360000',
+		'吉林': '220000',
+        // 添加更多城市
+      };
+
+      for (const cityName in cityMap) {
+        if (userInput.includes(cityName)) {
+          return cityMap[cityName];
+        }
       }
+      return null;
     },
 
     // 从XML文档加载聊天记录
@@ -558,10 +682,12 @@ export default {
       this.showSendButton = this.userInput.trim() !== '';
     },
 
+    // ------------------- 关键：集成大模型意图判断 -------------------
     async sendMessage() {
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput) return;
 
+      // 1. 将用户消息插到右侧气泡
       const userMsg = {
         type: 'right',
         name: '开拓者',
@@ -572,66 +698,130 @@ export default {
         finish: true
       };
       this.addMessageToSession(this.currentSession, userMsg);
-
       this.scrollToBottom();
 
-      // 创建AI消息对象并显示加载动画
-      const aiMsg = reactive({
-        type: 'left',
-        name: this.currentPerson.name, // 动态读取当前联系人的名字
-        msgType: 'text',
-        msg: '',
-        icon: characterPrompts[this.currentPerson.name]
-          ? characterPrompts[this.currentPerson.name].defaultIcon
-          : '/static/images/default.png', // 动态读取当前联系人的头像，默认图片用于兜底
-        appear: true,
-        isLoading: true, // 加载中状态
-        finish: false,
-      });
-      this.addMessageToSession(this.currentSession, aiMsg);
-      this.scrollToBottom();
+      // 2. 调用大模型做“意图识别”
+      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
+      console.log('意图识别结果:', intent);
 
-      const conversation = this.generateChatContext();
+      // 3. 如果是天气查询，则调用天气API
+      if (intent === 'weather') {
+        const foundCityCode = this.getCityCode(trimmedInput);
+        if (!foundCityCode) {
+          // 如果无法识别城市，提示用户输入城市名称
+          const promptMsg = {
+            type: 'left',
+            name: '系统',
+            msgType: 'text',
+            msg: '抱歉，我无法识别您想查询的城市。请您输入具体的城市名称，例如“北京”、“上海”等。',
+            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/system.png', // 使用当前聊天对象的头像
+            appear: true,
+            finish: true
+          };
+          this.addMessageToSession(this.currentSession, promptMsg);
+          this.scrollToBottom();
+        } else {
+          // 插入一条“正在查询天气...”的左侧加载气泡
+          const weatherMsgLoading = reactive({
+            type: 'left',
+            name: '天气查询',
+            msgType: 'text',
+            msg: '正在查询天气...',
+            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/weather.png', // 使用当前聊天对象的头像
+            appear: true,
+            isLoading: true,
+            finish: false
+          });
+          this.addMessageToSession(this.currentSession, weatherMsgLoading);
+          this.scrollToBottom();
 
-      try {
-        const aiReply = await this.fetchAIResponse(conversation); // 获取 AI 回复
-        aiMsg.isLoading = false; // 停止加载动画
-        aiMsg.finish = true; // 设置消息完成
-        aiMsg.msg = aiReply; // 更新消息内容
-        this.scrollToBottom(); // 滚动到底部
-      } catch (error) {
-        aiMsg.isLoading = false; // 停止加载动画
-        aiMsg.finish = true;
-        aiMsg.msg = '抱歉，无法获取AI的回复。'; // 错误消息提示
+          try {
+            const weatherInfo = await this.fetchWeather(foundCityCode);
+            weatherMsgLoading.isLoading = false;
+            weatherMsgLoading.finish = true;
+
+            if (weatherInfo) {
+              weatherMsgLoading.msg = `
+城市: ${weatherInfo.city}
+天气: ${weatherInfo.weather}
+温度: ${weatherInfo.temperature}℃
+风向: ${weatherInfo.winddirection}
+风力: ${weatherInfo.windpower}级
+湿度: ${weatherInfo.humidity}%
+              `.trim();
+            } else {
+              weatherMsgLoading.msg = '抱歉，无法获取到该城市的天气信息。';
+            }
+            this.scrollToBottom();
+          } catch (e) {
+            console.error('天气查询接口出错', e);
+            weatherMsgLoading.isLoading = false;
+            weatherMsgLoading.finish = true;
+            weatherMsgLoading.msg = '天气服务暂不可用。';
+            this.scrollToBottom();
+          }
+        }
+      } else {
+        // 4. 如果不是天气查询，则走原有的 AI 回复流程
+        const aiMsg = reactive({
+          type: 'left',
+          name: this.currentPerson.name, // 动态读取当前联系人的名字
+          msgType: 'text',
+          msg: '正在获取AI回复...',
+          icon: characterPrompts[this.currentPerson.name]
+            ? characterPrompts[this.currentPerson.name].defaultIcon
+            : '/static/images/default.png',
+          appear: true,
+          isLoading: true,
+          finish: false
+        });
+        this.addMessageToSession(this.currentSession, aiMsg);
         this.scrollToBottom();
+
+        const conversation = this.generateChatContext();
+
+        try {
+          const aiReply = await this.fetchAIResponse(conversation);
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = aiReply;
+          this.scrollToBottom();
+        } catch (error) {
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = '抱歉，无法获取AI的回复。';
+          this.scrollToBottom();
+        }
       }
 
+      // 清空输入框
       this.userInput = '';
       this.showSendButton = false;
     },
   },
   mounted() {
-    fetch('/public/tutorial.xml')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then((str) => {
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(str, 'text/xml');
-        this.loadXML(xml.documentElement);
+    // 从 /public/tutorial.xml 加载默认XML
+    wx.request({
+      url: '/public/tutorial.xml',
+      method: 'GET',
+      success: (res) => {
+        if (res.statusCode === 200) {
+          const parser = new DOMParser();
+          const xml = parser.parseFromString(res.data, 'text/xml');
+          this.loadXML(xml.documentElement);
 
-        // 自动选择第一个联系人和第一个会话（可选）
-        if (this.contacts.length > 0) {
-          this.selectPerson(this.contacts[0]);
-          if (this.contacts[0].sessions.length > 0) {
-            this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
-          }
+          // 可选：自动选择第一个联系人和第一个会话
+          // if (this.contacts.length > 0) {
+          //   this.selectPerson(this.contacts[0]);
+          //   if (this.contacts[0].sessions.length > 0) {
+          //     this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
+          //   }
+          // }
+        } else {
+          throw new Error(`HTTP error! Status: ${res.statusCode}`);
         }
-      })
-      .catch((error) => {
+      },
+      fail: (error) => {
         console.error('Error loading XML:', error);
 
         // 提供一个默认联系人和会话
@@ -669,18 +859,18 @@ export default {
         this.currentPerson = this.contacts[0];
         this.currentSession = this.contacts[0].sessions[0];
         this.sessionChanged = true;
-      });
+      }
+    });
 
+    // 定时检查是否需要自动滚动到底
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) {
         return;
       }
-
       if (Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1) {
         this.autoScroll = true;
       }
-
       if (this.autoScroll) {
         this.scrollToBottom();
       }
@@ -688,6 +878,8 @@ export default {
   },
 };
 </script>
+
+
 <style scoped>
 /* 保持之前的样式不变 */
 .form {
