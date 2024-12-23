@@ -501,7 +501,7 @@ export default {
           const msgObj = reactive({
             type: session.nextNode.tagName,
             name: session.nextNode.getAttribute('name'),
-            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
+            icon: session.nextNode.getAttribute('icon'), // 确保从节点获取正确的icon
             msgType: session.nextNode.getAttribute('type'),
             msg: session.nextNode.textContent,
             src: session.nextNode.getAttribute('src'),
@@ -701,7 +701,7 @@ export default {
         name: '开拓者',
         msgType: 'text',
         msg: trimmedInput,
-        icon: "/static/images/穹.png",
+        icon: "/static/images/穹.png", // 用户头像固定
         appear: true,
         finish: true
       };
@@ -723,7 +723,9 @@ export default {
             name: '天气查询', // 设置为“天气查询”
             msgType: 'text',
             msg: '正在处理您的天气查询请求...',
-            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
+            icon: characterPrompts[this.currentPerson.name]
+              ? characterPrompts[this.currentPerson.name].defaultIcon
+              : '/static/images/default.png', // 使用AI角色的默认头像
             appear: true,
             isLoading: true,
             finish: false
@@ -754,7 +756,9 @@ export default {
               name: '天气查询', // 设置为“天气查询”
               msgType: 'text',
               msg: `正在查询${city.name}的天气...`,
-              icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
+              icon: characterPrompts[this.currentPerson.name]
+                ? characterPrompts[this.currentPerson.name].weatherIcon || characterPrompts[this.currentPerson.name].defaultIcon
+                : '/static/images/weather.png', // 使用AI角色的天气相关头像或默认
               appear: true,
               isLoading: true,
               finish: false
@@ -793,10 +797,12 @@ export default {
         // 4. 如果不是天气查询，则走原有的 AI 回复流程
         const aiMsg = reactive({
           type: 'left',
-          name: this.currentPerson ? this.currentPerson.name : '系统', // 使用当前角色的名字
+          name: this.currentPerson ? this.currentPerson.name : '系统', // 动态读取当前联系人的名字
           msgType: 'text',
           msg: '正在获取AI回复...',
-          icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
+          icon: characterPrompts[this.currentPerson.name]
+            ? characterPrompts[this.currentPerson.name].defaultIcon
+            : '/static/images/default.png', // 使用AI角色的默认头像
           appear: true,
           isLoading: true,
           finish: false
