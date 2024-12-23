@@ -216,7 +216,7 @@
 
 
 <script>
-import { reactive, ref, createApp } from 'vue';
+import { reactive } from 'vue';
 // 引入刚才写好的 prompt 配置
 import { characterPrompts } from '/config/promptConfig.js'; 
 
@@ -399,7 +399,7 @@ export default {
     },
 
     // ------------------- 扩展：更全面的城市名映射 -------------------
-    getCityCode(userInput) {
+    getCityCodes(userInput) {
       const cityMap = {
         '北京': '110000',
         '上海': '310000',
@@ -417,29 +417,35 @@ export default {
         '青岛': '370200',
         '大连': '210200',
         '厦门': '350200',
-		'广东': '440000',
-		'江苏': '320000',
-		'四川': '510000',
-		'河北': '130000',
-		'河南': '410000',
-		'山东': '370000',
-		'辽宁': '210000',
-		'浙江': '330000',
-		'湖北': '420000',
-		'湖南': '430000',
-		'福建': '350000',
-		'安徽': '340000',
-		'江西': '360000',
-		'吉林': '220000',
+        '广东': '440000',
+        '江苏': '320000',
+        '四川': '510000',
+        '河北': '130000',
+        '河南': '410000',
+        '山东': '370000',
+        '辽宁': '210000',
+        '浙江': '330000',
+        '湖北': '420000',
+        '湖南': '430000',
+        '福建': '350000',
+        '安徽': '340000',
+        '江西': '360000',
+        '吉林': '220000',
         // 添加更多城市
       };
 
+      const matchedCityCodes = [];
+
       for (const cityName in cityMap) {
         if (userInput.includes(cityName)) {
-          return cityMap[cityName];
+          matchedCityCodes.push({
+            name: cityName,
+            code: cityMap[cityName]
+          });
         }
       }
-      return null;
+
+      return matchedCityCodes;
     },
 
     // 从XML文档加载聊天记录
@@ -495,7 +501,7 @@ export default {
           const msgObj = reactive({
             type: session.nextNode.tagName,
             name: session.nextNode.getAttribute('name'),
-            icon: session.nextNode.getAttribute('icon'),
+            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
             msgType: session.nextNode.getAttribute('type'),
             msg: session.nextNode.textContent,
             src: session.nextNode.getAttribute('src'),
@@ -572,6 +578,8 @@ export default {
             type: 'select',
             msgType: session.nextNode.getAttribute('type'),
             options,
+            name: this.currentPerson ? this.currentPerson.name : '系统', // 确保有name字段
+            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
           });
           this.addMessageToSession(session, msgObj);
           this.currentMessage = msgObj;
@@ -706,71 +714,89 @@ export default {
 
       // 3. 如果是天气查询，则调用天气API
       if (intent === 'weather') {
-        const foundCityCode = this.getCityCode(trimmedInput);
-        if (!foundCityCode) {
-          // 如果无法识别城市，提示用户输入城市名称
-          const promptMsg = {
+        const matchedCities = this.getCityCodes(trimmedInput);
+
+        if (matchedCities.length === 0) {
+          // 无法识别城市名称，调用大模型处理
+          const aiMsg = reactive({
             type: 'left',
-            name: '系统',
+            name: '天气查询', // 设置为“天气查询”
             msgType: 'text',
-            msg: '抱歉，我无法识别您想查询的城市。请您输入具体的城市名称，例如“北京”、“上海”等。',
-            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/system.png', // 使用当前聊天对象的头像
-            appear: true,
-            finish: true
-          };
-          this.addMessageToSession(this.currentSession, promptMsg);
-          this.scrollToBottom();
-        } else {
-          // 插入一条“正在查询天气...”的左侧加载气泡
-          const weatherMsgLoading = reactive({
-            type: 'left',
-            name: '天气查询',
-            msgType: 'text',
-            msg: '正在查询天气...',
-            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/weather.png', // 使用当前聊天对象的头像
+            msg: '正在处理您的天气查询请求...',
+            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
             appear: true,
             isLoading: true,
             finish: false
           });
-          this.addMessageToSession(this.currentSession, weatherMsgLoading);
+          this.addMessageToSession(this.currentSession, aiMsg);
           this.scrollToBottom();
 
-          try {
-            const weatherInfo = await this.fetchWeather(foundCityCode);
-            weatherMsgLoading.isLoading = false;
-            weatherMsgLoading.finish = true;
+          const conversation = this.generateChatContext();
 
-            if (weatherInfo) {
-              weatherMsgLoading.msg = `
+          try {
+            const aiReply = await this.fetchAIResponse(conversation);
+            aiMsg.isLoading = false;
+            aiMsg.finish = true;
+            aiMsg.msg = aiReply;
+            this.scrollToBottom();
+          } catch (error) {
+            aiMsg.isLoading = false;
+            aiMsg.finish = true;
+            aiMsg.msg = '抱歉，无法获取AI的回复。';
+            this.scrollToBottom();
+          }
+        } else {
+          // 对于每个匹配到的城市，插入一条“正在查询天气...”的消息，并发起 API 请求
+          matchedCities.forEach(async (city) => {
+            // 插入“正在查询天气...”的消息
+            const weatherMsgLoading = reactive({
+              type: 'left',
+              name: '天气查询', // 设置为“天气查询”
+              msgType: 'text',
+              msg: `正在查询${city.name}的天气...`,
+              icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
+              appear: true,
+              isLoading: true,
+              finish: false
+            });
+            this.addMessageToSession(this.currentSession, weatherMsgLoading);
+            this.scrollToBottom();
+
+            try {
+              const weatherInfo = await this.fetchWeather(city.code);
+              weatherMsgLoading.isLoading = false;
+              weatherMsgLoading.finish = true;
+
+              if (weatherInfo) {
+                weatherMsgLoading.msg = `
 城市: ${weatherInfo.city}
 天气: ${weatherInfo.weather}
 温度: ${weatherInfo.temperature}℃
 风向: ${weatherInfo.winddirection}
 风力: ${weatherInfo.windpower}级
 湿度: ${weatherInfo.humidity}%
-              `.trim();
-            } else {
-              weatherMsgLoading.msg = '抱歉，无法获取到该城市的天气信息。';
+                `.trim();
+              } else {
+                weatherMsgLoading.msg = `抱歉，无法获取到${city.name}的天气信息。`;
+              }
+              this.scrollToBottom();
+            } catch (e) {
+              console.error(`天气查询接口出错 (${city.name})`, e);
+              weatherMsgLoading.isLoading = false;
+              weatherMsgLoading.finish = true;
+              weatherMsgLoading.msg = `天气服务暂不可用 (${city.name})。`;
+              this.scrollToBottom();
             }
-            this.scrollToBottom();
-          } catch (e) {
-            console.error('天气查询接口出错', e);
-            weatherMsgLoading.isLoading = false;
-            weatherMsgLoading.finish = true;
-            weatherMsgLoading.msg = '天气服务暂不可用。';
-            this.scrollToBottom();
-          }
+          });
         }
       } else {
         // 4. 如果不是天气查询，则走原有的 AI 回复流程
         const aiMsg = reactive({
           type: 'left',
-          name: this.currentPerson.name, // 动态读取当前联系人的名字
+          name: this.currentPerson ? this.currentPerson.name : '系统', // 使用当前角色的名字
           msgType: 'text',
           msg: '正在获取AI回复...',
-          icon: characterPrompts[this.currentPerson.name]
-            ? characterPrompts[this.currentPerson.name].defaultIcon
-            : '/static/images/default.png',
+          icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
           appear: true,
           isLoading: true,
           finish: false
@@ -878,8 +904,6 @@ export default {
   },
 };
 </script>
-
-
 <style scoped>
 /* 保持之前的样式不变 */
 .form {
