@@ -132,9 +132,43 @@ const _sfc_main = {
       if (!this.currentPerson || !this.currentSession)
         return;
       const config = config_promptConfig.characterPrompts[this.currentPerson.name];
-      const msgs = config && config.welcomeMessages ? config.welcomeMessages : [];
-      const welcome = msgs.map((m) => ({ ...m, appear: true, finish: true }));
-      this.currentSession.messages = welcome;
+      const msgs = config && config.welcomeMessages ? [...config.welcomeMessages] : [];
+      if (!msgs.length)
+        return;
+      this.currentSession.messages = [];
+      this.currentSession._queue = msgs;
+      this.currentSession._index = 0;
+      this.currentSession.nextIndex = null;
+      this.currentSession.isQueueActive = true;
+      this.currentSession.insertNext = () => {
+        if (!this.currentSession.isQueueActive)
+          return;
+        if (this.currentSession._index >= this.currentSession._queue.length) {
+          return;
+        }
+        const raw = this.currentSession._queue[this.currentSession._index];
+        const newMsg = common_vendor.reactive({
+          ...raw,
+          appear: false,
+          finish: false,
+          isLoading: true
+        });
+        this.addMessageToSession(this.currentSession, newMsg);
+        setTimeout(() => {
+          newMsg.appear = true;
+          setTimeout(() => {
+            newMsg.finish = true;
+            newMsg.isLoading = false;
+            if (raw.type === "select") {
+              this.currentSession.nextIndex = this.currentSession._index + 1;
+            } else {
+              this.currentSession._index++;
+              this.currentSession.insertNext();
+            }
+          }, 1e3);
+        }, 500);
+      };
+      this.currentSession.insertNext();
     },
     // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
     addMessageToSession(session, newMessage) {
@@ -167,10 +201,41 @@ const _sfc_main = {
       option.click = true;
       this.isSelectClose = true;
       if (option.children && Array.isArray(option.children)) {
-        option.children.forEach((childMsg) => {
-          const newMsg = { ...childMsg, appear: true, finish: true };
+        let i = 0;
+        const insertChild = () => {
+          if (i >= option.children.length) {
+            this.continueQueue();
+            return;
+          }
+          const raw = option.children[i];
+          const newMsg = common_vendor.reactive({
+            ...raw,
+            appear: false,
+            finish: false,
+            isLoading: true
+          });
           this.addMessageToSession(this.currentSession, newMsg);
-        });
+          setTimeout(() => {
+            newMsg.appear = true;
+            setTimeout(() => {
+              newMsg.finish = true;
+              newMsg.isLoading = false;
+              i++;
+              insertChild();
+            }, 1e3);
+          }, 500);
+        };
+        insertChild();
+      } else {
+        this.continueQueue();
+      }
+    },
+    continueQueue() {
+      if (this.currentSession && this.currentSession.nextIndex != null && this.currentSession._index !== this.currentSession.nextIndex) {
+        this.currentSession._index = this.currentSession.nextIndex;
+      }
+      if (this.currentSession && this.currentSession.insertNext) {
+        this.currentSession.insertNext();
       }
     },
     // ------------------- 发送消息 -------------------

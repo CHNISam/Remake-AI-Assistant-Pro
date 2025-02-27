@@ -200,7 +200,7 @@ export const characterPrompts = {
                 type: 'left',
                 time: 1.0,
                 name: '三月七',
-                icon: '/static/images/三月七-哭.gif',
+                icon: '/static/images/三月七.png',
                 msgType: 'pic',
                 src: '/static/images/三月七-哭.gif',
                 msg: '[哭]',

@@ -359,15 +359,65 @@ export default {
     },
 
     // [CHANGED CODE HERE] 改成读取 characterPrompts 的 welcomeMessages
-    initSessionWithWelcome() {
-      if (!this.currentPerson || !this.currentSession) return;
-      const config = characterPrompts[this.currentPerson.name];
-      const msgs = config && config.welcomeMessages ? config.welcomeMessages : [];
-      // 给所有消息加上 appear: true / finish: true
-      const welcome = msgs.map(m => ({ ...m, appear: true, finish: true }));
-      this.currentSession.messages = welcome;
-    },
+initSessionWithWelcome() {
+  if (!this.currentPerson || !this.currentSession) return;
+  const config = characterPrompts[this.currentPerson.name];
+  const msgs = config && config.welcomeMessages ? [...config.welcomeMessages] : [];
+  if (!msgs.length) return;
 
+  // 先清空当前会话
+  this.currentSession.messages = [];
+
+  // 建立一个队列和下标
+  this.currentSession._queue = msgs;
+  this.currentSession._index = 0;  // 当前将要插入的队列下标
+  this.currentSession.nextIndex = null;  // 用来存 “暂停”时下一个下标
+  this.currentSession.isQueueActive = true; // 是否继续队列
+
+  // 定义插入下一条消息的函数
+  this.currentSession.insertNext = () => {
+    // 如果队列被标记为不激活，或者超出范围，就停止
+    if (!this.currentSession.isQueueActive) return;
+    if (this.currentSession._index >= this.currentSession._queue.length) {
+      return; // 已插完全部消息
+    }
+    const raw = this.currentSession._queue[this.currentSession._index];
+
+    // 用 reactive 包裹，默认 appear=false, finish=false
+    const newMsg = reactive({
+      ...raw,
+      appear: false,
+      finish: false,
+      isLoading: true
+    });
+
+    // 插入会话
+    this.addMessageToSession(this.currentSession, newMsg);
+
+    // 延迟触发动画
+    setTimeout(() => {
+      newMsg.appear = true;
+      setTimeout(() => {
+        newMsg.finish = true;
+		newMsg.isLoading = false;
+
+        // 如果是select，则暂停，不再继续队列
+        if (raw.type === 'select') {
+          // 记录下一个要插入的下标，但不马上执行
+          this.currentSession.nextIndex = this.currentSession._index + 1;
+        } else {
+          // 如果不是 select，继续下一条
+          this.currentSession._index++;
+          this.currentSession.insertNext();
+        }
+
+      }, 1000); // finish 的延迟
+    }, 500);   // appear 的延迟
+  };
+
+  // 启动队列
+  this.currentSession.insertNext();
+},
     // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
     addMessageToSession(session, newMessage) {
       session.messages.push(newMessage);
@@ -394,21 +444,63 @@ export default {
     },
 
     // 点击选项后，若有 children 就追加
-    async clickOption(option) {
-      if (this.isSelectClose) {
-        return;
-      }
-      option.click = true;
-      this.isSelectClose = true;
+	async clickOption(option) {
+	  if (this.isSelectClose) {
+		return;
+	  }
+	  option.click = true;
+	  this.isSelectClose = true;
 
-      // [CHANGED CODE HERE] 插入 children
-      if (option.children && Array.isArray(option.children)) {
-        option.children.forEach(childMsg => {
-          const newMsg = { ...childMsg, appear: true, finish: true };
-          this.addMessageToSession(this.currentSession, newMsg);
-        });
-      }
-    },
+	  // 若有子消息，则逐条插入
+	  if (option.children && Array.isArray(option.children)) {
+		let i = 0;
+
+		const insertChild = () => {
+		  if (i >= option.children.length) {
+			// 子消息都插完了，再继续主队列
+			this.continueQueue();
+			return;
+		  }
+		  const raw = option.children[i];
+		  const newMsg = reactive({
+			...raw,
+			appear: false,
+			finish: false,
+			isLoading: true
+		  });
+		  this.addMessageToSession(this.currentSession, newMsg);
+
+		  setTimeout(() => {
+			newMsg.appear = true;
+			setTimeout(() => {
+			  newMsg.finish = true;
+			  newMsg.isLoading = false;
+			  i++;
+			  insertChild();
+			}, 1000);
+		  }, 500);
+		};
+
+		insertChild();
+	  } else {
+		// 如果选项没子消息，直接继续主队列
+		this.continueQueue();
+	  }
+	},
+	continueQueue() {
+	  // 如果当前会话在 select 时被暂停了，需要将 _index 移动到 nextIndex
+	  if (
+		this.currentSession &&
+		this.currentSession.nextIndex != null &&
+		this.currentSession._index !== this.currentSession.nextIndex
+	  ) {
+		this.currentSession._index = this.currentSession.nextIndex;
+	  }
+	  // 然后再调用 insertNext() 继续
+	  if (this.currentSession && this.currentSession.insertNext) {
+		this.currentSession.insertNext();
+	  }
+	},
 
     // ------------------- 发送消息 -------------------
     async sendMessage() {
