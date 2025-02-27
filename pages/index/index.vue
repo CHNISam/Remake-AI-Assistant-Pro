@@ -1119,7 +1119,35 @@ initSessionWithWelcome() {
 }
 
 .person-icon {
-  width: 40px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.person-name {
+  margin-left: 10px;
+}
+
+.person-desc {
+  margin-left: 10px;
+  color: #767879;
+}
+
+.person-online {
+  margin-left: auto;
+  margin-right: 10px;
+  color: #767879;
+}
+
+.person-online-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.person-offline {
+  margin-left: auto;
+  margin-right: 10px;
+  color: #767879;
   height: 40px;
   border-radius: 50%;
 }
@@ -1170,32 +1198,36 @@ initSessionWithWelcome() {
   padding-bottom: 20px;
   text-align: right;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;  /* 修改：顶部对齐 */
   justify-content: flex-end;
 }
 
+
 .msg-left-icon {
-  width: 40px;
-  height: 40px;
+  display: inline-block;
+  vertical-align: top;   /* 确保图标顶部对齐 */
+  align-self: flex-start; /* 额外保证 */
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
+  margin-right: 10px;
 }
 
-.msg-left-other {
-  display: inline-block;
-  margin-top: 0;
-  vertical-align: top;
+.msg-left-name-and-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* 确保昵称和气泡都从顶部开始排列 */
+  max-width: 300px;
 }
 
 .msg-left-name {
-  display: inline;
   color: #7b7b7b;
-  margin-left: 10px;
-  vertical-align: top;
+  margin-bottom: 5px; /* 改为下边距 */
 }
 
 .msg-left-balloon {
   margin-top: 10px;
-  margin-left: 10px;
+  margin-left: 0; /* 取消左侧额外间距 */
   background: linear-gradient(to bottom, #ebebeb 0%, #ebebeb 100%);
   border-top-right-radius: 10px;
   border-bottom-left-radius: 10px;
@@ -1206,44 +1238,17 @@ initSessionWithWelcome() {
   background-size: 100% 100%;
 }
 
-.msg-left-circle-box {
-  margin-top: 5px;
-  margin-left: 13px;
-  display: flex;
-  align-items: center;
-}
-
-.msg-left-content {
-}
-
-.msg-pic-content {
-  width: 150px;
-  height: 150px;
-  margin: 20px;
-}
-
-.msg-left-name-and-content {
-  display: inline-block;
-  max-width: 300px;
-}
-
-.msg-right-icon {
-  width: 40px;
-  height: 40px;
-  margin-right: 20px;
-  border-radius: 50%;
-}
-
 .msg-right-other {
-  display: inline-block;
-  margin-top: 0;
-  vertical-align: top;
+  display: flex;
+  flex-direction: column;
   max-width: 300px;
+  margin-right: 10px; /* 在内容与头像之间添加间距 */
 }
 
 .msg-right-name {
   color: #7b7b7b;
-  margin-right: 10px;
+  margin-bottom: 5px;
+  vertical-align: top; /* 确保昵称顶部对齐 */
 }
 
 .msg-right-content {
@@ -1255,6 +1260,43 @@ initSessionWithWelcome() {
   border-bottom-right-radius: 10px;
   padding: 10px;
   text-align: left;
+}
+/* 修改部分结束 */
+
+.msg-left-other {
+  display: inline-block;
+  margin-top: 0;
+  vertical-align: top;
+}
+
+.msg-left-content {
+}
+
+.msg-pic-content {
+  width: 150px;
+  height: 150px;
+  margin: 20px;
+}
+
+.msg-right-icon {
+  display: inline-block;
+  vertical-align: top;
+  width: 50px;
+  height: 50px;
+  margin-right: 20px;
+  border-radius: 50%;
+}
+
+.msg-right-other {
+  /* 已在修改部分中设置 */
+}
+
+.msg-right-name {
+  /* 已在修改部分中设置 */
+}
+
+.msg-right-content {
+  /* 已在修改部分中设置 */
 }
 
 @keyframes blink {
