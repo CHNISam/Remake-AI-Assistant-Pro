@@ -6,31 +6,31 @@ const _sfc_main = {
   name: "MessageApp",
   data() {
     return {
-      // 用户输入内容
       userInput: "",
+      // 用户输入内容
       showSendButton: false,
       // 控制发送按钮的显示
       // 大模型API相关
-      model: "glm-4-flash",
-      // 模型名称（固定值）
+      model: "glm-zero-preview",
+      // 模型名称
       apiToken: "76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ",
-      // 你的token
-      // 天气API相关
-      amapApiKey: "79452bccf16e1cd79877f79614b3bd23",
-      // 联系人数据（直接从 promptConfig 中构建）
+      // 请使用你自己的Token
+      // 联系人数据
       contacts: [],
       sessionSelected: false,
       currentPerson: null,
       currentSession: null,
       sessionChanged: false,
       currentMessage: null,
-      // 指向会话最后一条select消息
+      // 指向会话最后一条 select 消息
       maxVisibleMessages: 50,
       isSelectClose: false,
       // 用于点击选项后把选项折叠
       autoScroll: true,
       lastScrollTop: 0,
-      isSidebarOpen: true
+      isSidebarOpen: true,
+      errorMessage: ""
+      // 错误信息
     };
   },
   computed: {
@@ -44,7 +44,7 @@ const _sfc_main = {
     }
   },
   methods: {
-    // 从 promptConfig 里生成联系人
+    // ------------------- 初始化联系人 -------------------
     setupContactsFromConfig() {
       const allCharacters = Object.values(config_promptConfig.characterPrompts);
       this.contacts = allCharacters.map((char) => {
@@ -105,9 +105,8 @@ const _sfc_main = {
     },
     // 切换会话
     selectSession(person, session) {
-      if (session === this.currentSession) {
+      if (session === this.currentSession)
         return;
-      }
       for (let p of this.contacts) {
         for (let s of p.sessions) {
           s.select = false;
@@ -127,7 +126,7 @@ const _sfc_main = {
       this.updateCurrentMessage(session);
       this.scrollToBottom();
     },
-    // [CHANGED CODE HERE] 改成读取 characterPrompts 的 welcomeMessages
+    // 初始化对话（从 promptConfig 里读取 welcomeMessages）
     initSessionWithWelcome() {
       if (!this.currentPerson || !this.currentSession)
         return;
@@ -138,12 +137,11 @@ const _sfc_main = {
       this.currentSession.messages = [];
       this.currentSession._queue = msgs;
       this.currentSession._index = 0;
-      this.currentSession.nextIndex = null;
+      this.currentSession._nextIndex = null;
       this.currentSession.isQueueActive = true;
       this.currentSession.insertNext = () => {
-        if (!this.currentSession.isQueueActive)
-          return;
         if (this.currentSession._index >= this.currentSession._queue.length) {
+          this.currentSession.isQueueActive = false;
           return;
         }
         const raw = this.currentSession._queue[this.currentSession._index];
@@ -154,23 +152,25 @@ const _sfc_main = {
           isLoading: true
         });
         this.addMessageToSession(this.currentSession, newMsg);
+        const isRight = raw.type === "right";
+        const appearDelay = isRight ? 100 : 500;
+        const finishDelay = isRight ? 250 : 1e3;
         setTimeout(() => {
           newMsg.appear = true;
           setTimeout(() => {
             newMsg.finish = true;
             newMsg.isLoading = false;
             if (raw.type === "select") {
-              this.currentSession.nextIndex = this.currentSession._index + 1;
+              this.currentSession._nextIndex = this.currentSession._index + 1;
             } else {
               this.currentSession._index++;
               this.currentSession.insertNext();
             }
-          }, 1e3);
-        }, 500);
+          }, finishDelay);
+        }, appearDelay);
       };
       this.currentSession.insertNext();
     },
-    // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
     addMessageToSession(session, newMessage) {
       session.messages.push(newMessage);
       const MAX_MESSAGES = 100;
@@ -179,7 +179,6 @@ const _sfc_main = {
       }
       this.updateCurrentMessage(session);
     },
-    // [CHANGED CODE HERE] 用来判断会话最后一条是否是 select
     updateCurrentMessage(session) {
       if (!session || !session.messages || session.messages.length === 0) {
         this.currentMessage = null;
@@ -193,11 +192,10 @@ const _sfc_main = {
         this.currentMessage = null;
       }
     },
-    // 点击选项后，若有 children 就追加
+    // 点击选项
     async clickOption(option) {
-      if (this.isSelectClose) {
+      if (this.isSelectClose)
         return;
-      }
       option.click = true;
       this.isSelectClose = true;
       if (option.children && Array.isArray(option.children)) {
@@ -227,12 +225,13 @@ const _sfc_main = {
         };
         insertChild();
       } else {
-        this.continueQueue();
+        this.userInput = option.msg;
+        await this.sendMessage();
       }
     },
     continueQueue() {
-      if (this.currentSession && this.currentSession.nextIndex != null && this.currentSession._index !== this.currentSession.nextIndex) {
-        this.currentSession._index = this.currentSession.nextIndex;
+      if (this.currentSession && this.currentSession._nextIndex != null && this.currentSession._index !== this.currentSession._nextIndex) {
+        this.currentSession._index = this.currentSession._nextIndex;
       }
       if (this.currentSession && this.currentSession.insertNext) {
         this.currentSession.insertNext();
@@ -240,154 +239,96 @@ const _sfc_main = {
     },
     // ------------------- 发送消息 -------------------
     async sendMessage() {
-      var _a, _b;
+      var _a;
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput)
         return;
-      const userMsg = {
+      const userMsg = common_vendor.reactive({
         type: "right",
         name: "开拓者",
         msgType: "text",
         msg: trimmedInput,
         icon: "/static/images/穹.png",
-        appear: true,
-        finish: true
-      };
+        appear: false,
+        finish: false,
+        isLoading: true
+      });
       this.addMessageToSession(this.currentSession, userMsg);
       this.scrollToBottom();
-      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
-      console.log("意图识别结果:", intent);
-      if (intent === "weather") {
-        const matchedCities = this.getCityCodes(trimmedInput);
-        if (matchedCities.length === 0) {
-          const aiMsg = common_vendor.reactive({
-            type: "left",
-            name: "天气查询",
-            msgType: "text",
-            msg: "无法识别你想查的城市，可以再说具体点吗？",
-            icon: ((_a = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a.defaultIcon) || "/static/images/default.png",
-            appear: true,
-            isLoading: false,
-            finish: true
-          });
-          this.addMessageToSession(this.currentSession, aiMsg);
-          this.scrollToBottom();
-        } else {
-          matchedCities.forEach(async (city) => {
-            var _a2;
-            const loadingMsg = common_vendor.reactive({
-              type: "left",
-              name: "天气查询",
-              msgType: "text",
-              msg: `正在查询${city.name}天气...`,
-              icon: ((_a2 = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a2.defaultIcon) || "/static/images/weather.png",
-              appear: true,
-              isLoading: true,
-              finish: false
-            });
-            this.addMessageToSession(this.currentSession, loadingMsg);
-            this.scrollToBottom();
-            try {
-              const weatherInfo = await this.fetchWeather(city.code);
-              loadingMsg.isLoading = false;
-              loadingMsg.finish = true;
-              if (weatherInfo) {
-                loadingMsg.msg = `
-城市: ${weatherInfo.city}
-天气: ${weatherInfo.weather}
-温度: ${weatherInfo.temperature}℃
-风向: ${weatherInfo.winddirection}
-风力: ${weatherInfo.windpower}级
-湿度: ${weatherInfo.humidity}%
-                `.trim();
-              } else {
-                loadingMsg.msg = `抱歉，无法获取到${city.name}的天气信息。`;
-              }
-              this.scrollToBottom();
-            } catch (e) {
-              console.error(`天气查询接口出错 (${city.name})`, e);
-              loadingMsg.isLoading = false;
-              loadingMsg.finish = true;
-              loadingMsg.msg = `天气服务暂不可用 (${city.name})。`;
-              this.scrollToBottom();
-            }
-          });
-        }
-      } else {
-        const aiMsg = common_vendor.reactive({
-          type: "left",
-          name: this.currentPerson ? this.currentPerson.name : "系统",
-          msgType: "text",
-          msg: "正在获取AI回复...",
-          icon: ((_b = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _b.defaultIcon) || "/static/images/default.png",
-          appear: true,
-          isLoading: true,
-          finish: false
-        });
-        this.addMessageToSession(this.currentSession, aiMsg);
+      const appearDelay = 100;
+      const finishDelay = 250;
+      setTimeout(() => {
+        userMsg.appear = true;
+        setTimeout(() => {
+          userMsg.finish = true;
+          userMsg.isLoading = false;
+        }, finishDelay);
+      }, appearDelay);
+      const aiMsg = common_vendor.reactive({
+        type: "left",
+        name: this.currentPerson ? this.currentPerson.name : "系统",
+        msgType: "text",
+        msg: "正在获取AI回复...",
+        icon: ((_a = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a.defaultIcon) || "/static/images/default.png",
+        appear: true,
+        isLoading: true,
+        finish: false
+      });
+      this.addMessageToSession(this.currentSession, aiMsg);
+      this.scrollToBottom();
+      const conversation = this.generateChatContext();
+      try {
+        const aiReply = await this.fetchAIResponse(conversation);
+        aiMsg.isLoading = false;
+        aiMsg.finish = true;
+        aiMsg.msg = aiReply;
         this.scrollToBottom();
-        const conversation = this.generateChatContext();
-        try {
-          const aiReply = await this.fetchAIResponse(conversation);
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = aiReply;
-          this.scrollToBottom();
-        } catch (error) {
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = "抱歉，无法获取AI的回复。";
-          this.scrollToBottom();
+        if (!this.currentSession.finish) {
+          this.generateNextUserOptions();
         }
+      } catch (error) {
+        aiMsg.isLoading = false;
+        aiMsg.finish = true;
+        aiMsg.msg = "抱歉，无法获取AI的回复。";
+        this.scrollToBottom();
       }
       this.userInput = "";
       this.showSendButton = false;
     },
-    // 调用大模型做“意图识别”
-    async checkMessageIntentWithLLM(userMsg) {
-      return new Promise((resolve) => {
-        const systemPrompt = `
-你是一个分类器，用户会发来一句话。你需要判断这句话是否是对“天气”的询问。
-如果用户是在查询某地的天气，请只回答 "weather"。
-如果不是在查询天气，包括只是感慨天气不错，请只回答 "other"。
-只输出这一个词，不要带多余内容。
-        `.trim();
-        common_vendor.wx$1.request({
-          url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-          method: "POST",
-          header: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiToken}`
-          },
-          data: {
-            model: this.model,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userMsg }
-            ],
-            stream: false
-          },
-          success: (res) => {
-            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-              const content = res.data.choices[0].message.content.trim().toLowerCase();
-              if (content === "weather") {
-                resolve("weather");
-              } else {
-                resolve("other");
-              }
-            } else {
-              console.error("意图识别API请求失败，状态码：", res.statusCode);
-              resolve("other");
-            }
-          },
-          fail: (error) => {
-            console.error("意图识别时出现错误:", error);
-            resolve("other");
-          }
-        });
+    // ------------------- 自动生成下一步用户可选回复 -------------------
+    async generateNextUserOptions() {
+      if (!this.currentSession)
+        return;
+      try {
+        const conversation = this.generateChatContext();
+        const suggestions = await this.generateMultipleSuggestions(conversation);
+        if (!suggestions || suggestions.length === 0)
+          return;
+        const selectMsg = this.buildSelectMessage(suggestions);
+        this.addMessageToSession(this.currentSession, selectMsg);
+        this.isSelectClose = false;
+        this.scrollToBottom();
+      } catch (err) {
+        console.error("生成下一步用户回复失败：", err);
+      }
+    },
+    buildSelectMessage(suggestionsArray) {
+      var _a;
+      return common_vendor.reactive({
+        type: "select",
+        name: "建议",
+        icon: ((_a = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a.defaultIcon) || "/static/images/default.png",
+        appear: true,
+        finish: true,
+        isLoading: false,
+        options: suggestionsArray.map((text) => ({
+          msg: text,
+          hover: false,
+          click: false
+        }))
       });
     },
-    // 让大模型生成回复
+    // ------------------- 大模型AI回复 -------------------
     async fetchAIResponse(conversation) {
       return new Promise((resolve, reject) => {
         common_vendor.wx$1.request({
@@ -402,7 +343,7 @@ const _sfc_main = {
             messages: [
               {
                 role: "system",
-                content: config_promptConfig.characterPrompts[this.currentPerson.name] ? config_promptConfig.characterPrompts[this.currentPerson.name].systemPrompt : "这是一个默认的 systemPrompt，用于兜底处理。"
+                content: this.currentPerson && config_promptConfig.characterPrompts[this.currentPerson.name] ? config_promptConfig.characterPrompts[this.currentPerson.name].systemPrompt : "这是一个默认的 systemPrompt，用于兜底处理。"
               },
               ...conversation.map((msg) => ({
                 role: msg.role,
@@ -415,7 +356,7 @@ const _sfc_main = {
             if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
               resolve(res.data.choices[0].message.content.trim());
             } else {
-              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+              reject(new Error(`API请求失败，状态码：${res.statusCode}，返回数据：${JSON.stringify(res.data)}`));
             }
           },
           fail: (error) => {
@@ -427,82 +368,121 @@ const _sfc_main = {
         return "抱歉，无法获取AI的回复。";
       });
     },
-    // 调用高德API查询天气
-    async fetchWeather(cityCode) {
-      return new Promise((resolve) => {
-        const url = "https://restapi.amap.com/v3/weather/weatherInfo";
-        const params = {
-          key: this.amapApiKey,
-          city: cityCode,
-          extensions: "base",
-          output: "json"
-        };
+    // ------------------- 并发生成单个建议 -------------------
+    async fetchSingleSuggestion(conversation) {
+      return new Promise((resolve, reject) => {
         common_vendor.wx$1.request({
-          url,
-          method: "GET",
-          data: params,
+          url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+          method: "POST",
+          header: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiToken}`
+          },
+          data: {
+            model: this.model,
+            temperature: 0,
+            messages: [
+              {
+                role: "system",
+                content: "请扮演游戏《崩坏：星穹铁道》中的开拓者，一名性格古怪、幽默风趣的冒险者。请站在我们的角度，给出一个简短建议，回复不超过25字。"
+              },
+              ...conversation.map((msg) => ({
+                role: msg.role,
+                content: msg.content
+              }))
+            ],
+            stream: false
+          },
           success: (res) => {
-            const data = res.data;
-            if (data.status === "1" && data.lives && data.lives.length > 0) {
-              resolve(data.lives[0]);
+            console.log("Single suggestion response:", res);
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              let content = res.data.choices[0].message.content.trim();
+              console.log("Single suggestion raw content:", content);
+              let suggestion = "";
+              try {
+                const parsed = JSON.parse(content);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  suggestion = parsed[0];
+                } else {
+                  suggestion = content;
+                }
+              } catch (e) {
+                const regex = /(?:建议|选项)[：:]\s*([^，。]+)/;
+                const match = content.match(regex);
+                if (match && match[1]) {
+                  suggestion = match[1].trim();
+                } else {
+                  suggestion = content;
+                }
+              }
+              if (suggestion.length > 25) {
+                suggestion = suggestion.substring(0, 25);
+              }
+              resolve(suggestion);
             } else {
-              console.error("天气查询失败，错误信息:", data.info);
-              resolve(null);
+              console.error("Single suggestion API返回数据不符合预期:", res);
+              reject(new Error(`生成建议API请求失败，状态码：${res.statusCode}，返回数据：${JSON.stringify(res.data)}`));
             }
           },
           fail: (error) => {
-            console.error("天气查询失败:", error);
-            resolve(null);
+            console.error("Single suggestion API请求失败:", error);
+            reject(new Error(`请求失败: ${error}`));
           }
         });
       });
     },
-    // 更多城市名匹配
-    getCityCodes(userInput) {
-      const cityMap = {
-        "北京": "110000",
-        "上海": "310000",
-        "广州": "440100",
-        "深圳": "440300",
-        "杭州": "330100",
-        "成都": "510100",
-        "重庆": "500000",
-        "天津": "120000",
-        "武汉": "420100",
-        "西安": "610100",
-        "南京": "320100",
-        "苏州": "320500",
-        "长沙": "430100",
-        "青岛": "370200",
-        "大连": "210200",
-        "厦门": "350200",
-        "广东": "440000",
-        "江苏": "320000",
-        "四川": "510000",
-        "河北": "130000",
-        "河南": "410000",
-        "山东": "370000",
-        "辽宁": "210000",
-        "浙江": "330000",
-        "湖北": "420000",
-        "湖南": "430000",
-        "福建": "350000",
-        "安徽": "340000",
-        "江西": "360000",
-        "吉林": "220000",
-        "佛山": "440600",
-        "东莞": "441900"
-      };
-      const matchedCityCodes = [];
-      for (const cityName in cityMap) {
-        if (userInput.includes(cityName)) {
-          matchedCityCodes.push({
-            name: cityName,
-            code: cityMap[cityName]
-          });
-        }
+    // ------------------- 并发生成多个建议 -------------------
+    async generateMultipleSuggestions(conversation) {
+      const suggestionCount = 2;
+      const promises = [];
+      for (let i = 0; i < suggestionCount; i++) {
+        promises.push(this.fetchSingleSuggestion(conversation));
       }
-      return matchedCityCodes;
+      try {
+        const suggestions = await Promise.all(promises);
+        return suggestions;
+      } catch (e) {
+        console.error("并发生成建议失败：", e);
+        throw e;
+      }
+    },
+    // ------------------- 独立的请求函数 -------------------
+    makeRequest(conversation) {
+      return new Promise((resolve, reject) => {
+        common_vendor.wx$1.request({
+          url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+          method: "POST",
+          header: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiToken}`
+          },
+          data: {
+            model: this.model,
+            temperature: 0,
+            messages: [
+              {
+                role: "system",
+                content: `你是一个对话助手，请根据上下文给出2~3个简短建议，输出必须是标准 JSON 数组，例如：["建议1","建议2"]。`
+              },
+              ...conversation.map((msg) => ({
+                role: msg.role,
+                content: msg.content
+              }))
+            ],
+            stream: false
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              resolve(res.data);
+            } else {
+              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+            }
+          },
+          fail: (error) => {
+            reject(new Error(`请求失败: ${error}`));
+          }
+        });
+      });
     },
     // 将当前会话消息转换为模型所需的上下文
     generateChatContext() {

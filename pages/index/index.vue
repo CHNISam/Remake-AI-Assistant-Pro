@@ -31,7 +31,8 @@
                 @click="selectPerson(p)"
               >
                 <!-- 头像 -->
-                <img :src="p.icon" alt="" class="person-icon" /> &nbsp;&nbsp;
+                <img :src="p.icon" alt="" class="person-icon" />
+                &nbsp;&nbsp;
                 <!-- 名称 -->
                 <span>{{ p.name }}</span>
               </div>
@@ -140,12 +141,7 @@
                           <div v-if="m.msgType === 'text'" class="msg-right-content">
                             {{ m.msg }}
                           </div>
-                          <img
-                            v-else
-                            class="msg-pic-content"
-                            :src="m.src"
-                            alt=""
-                          />
+                          <img v-else class="msg-pic-content" :src="m.src" alt="" />
                         </div>
                       </transition>
 
@@ -166,6 +162,7 @@
                     class="chat-box-middle-hr"
                   />
                 </div>
+
                 <!-- 聊天框-底部盒子（回复选项） -->
                 <div class="chat-box-bottom-grow"></div>
                 <div
@@ -192,6 +189,7 @@
                     </div>
                   </div>
                 </div>
+
                 <!-- 用户输入框和发送按钮 -->
                 <div class="input-area" v-if="sessionSelected">
                   <input
@@ -220,33 +218,32 @@
 
 <script>
 import { reactive } from 'vue';
-import { characterPrompts } from '/config/promptConfig.js'; // 引入你的prompt配置
+import { characterPrompts } from '/config/promptConfig.js'; // 引入你的角色配置
 
 export default {
   name: 'MessageApp',
   data() {
     return {
-      // 用户输入内容
-      userInput: '',
+      userInput: '',       // 用户输入内容
       showSendButton: false, // 控制发送按钮的显示
-      // 大模型API相关
-      model: 'glm-4-flash', // 模型名称（固定值）
-      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ', // 你的token
-      // 天气API相关
-      amapApiKey: '79452bccf16e1cd79877f79614b3bd23',
 
-      // 联系人数据（直接从 promptConfig 中构建）
+      // 大模型API相关
+      model: 'glm-zero-preview', // 模型名称
+      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ', // 请使用你自己的Token
+
+      // 联系人数据
       contacts: [],
       sessionSelected: false,
       currentPerson: null,
       currentSession: null,
       sessionChanged: false,
-      currentMessage: null, // 指向会话最后一条select消息
+      currentMessage: null, // 指向会话最后一条 select 消息
       maxVisibleMessages: 50,
       isSelectClose: false, // 用于点击选项后把选项折叠
       autoScroll: true,
       lastScrollTop: 0,
       isSidebarOpen: true,
+      errorMessage: '' // 错误信息
     };
   },
   computed: {
@@ -262,7 +259,7 @@ export default {
     },
   },
   methods: {
-    // 从 promptConfig 里生成联系人
+    // ------------------- 初始化联系人 -------------------
     setupContactsFromConfig() {
       const allCharacters = Object.values(characterPrompts);
       this.contacts = allCharacters.map(char => {
@@ -299,11 +296,11 @@ export default {
         }
       });
     },
+
     onChatBoxMiddleScroll() {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) return;
       const st = cm.scrollTop;
-      // 如果用户向上滚动，则取消自动滚动
       if (st < this.lastScrollTop) {
         this.autoScroll = false;
       }
@@ -328,10 +325,7 @@ export default {
 
     // 切换会话
     selectSession(person, session) {
-      if (session === this.currentSession) {
-        return;
-      }
-      // 先取消已有选中
+      if (session === this.currentSession) return;
       for (let p of this.contacts) {
         for (let s of p.sessions) {
           s.select = false;
@@ -340,85 +334,62 @@ export default {
       session.select = true;
       this.sessionSelected = true;
       this.sessionChanged = false;
-
       setTimeout(() => {
         this.sessionChanged = true;
       }, 100);
-
       this.currentPerson = person;
       this.currentSession = session;
-
-      // 如果当前会话没有消息，注入开场白
       if (!session.messages || session.messages.length === 0) {
         this.initSessionWithWelcome();
       }
-      // [CHANGED CODE HERE] 每次切换会话后检查最后一条消息是否为select
       this.updateCurrentMessage(session);
-
       this.scrollToBottom();
     },
 
-    // [CHANGED CODE HERE] 改成读取 characterPrompts 的 welcomeMessages
-initSessionWithWelcome() {
-  if (!this.currentPerson || !this.currentSession) return;
-  const config = characterPrompts[this.currentPerson.name];
-  const msgs = config && config.welcomeMessages ? [...config.welcomeMessages] : [];
-  if (!msgs.length) return;
-
-  // 先清空当前会话
-  this.currentSession.messages = [];
-
-  // 建立一个队列和下标
-  this.currentSession._queue = msgs;
-  this.currentSession._index = 0;  // 当前将要插入的队列下标
-  this.currentSession.nextIndex = null;  // 用来存 “暂停”时下一个下标
-  this.currentSession.isQueueActive = true; // 是否继续队列
-
-  // 定义插入下一条消息的函数
-  this.currentSession.insertNext = () => {
-    // 如果队列被标记为不激活，或者超出范围，就停止
-    if (!this.currentSession.isQueueActive) return;
-    if (this.currentSession._index >= this.currentSession._queue.length) {
-      return; // 已插完全部消息
-    }
-    const raw = this.currentSession._queue[this.currentSession._index];
-
-    // 用 reactive 包裹，默认 appear=false, finish=false
-    const newMsg = reactive({
-      ...raw,
-      appear: false,
-      finish: false,
-      isLoading: true
-    });
-
-    // 插入会话
-    this.addMessageToSession(this.currentSession, newMsg);
-
-    // 延迟触发动画
-    setTimeout(() => {
-      newMsg.appear = true;
-      setTimeout(() => {
-        newMsg.finish = true;
-		newMsg.isLoading = false;
-
-        // 如果是select，则暂停，不再继续队列
-        if (raw.type === 'select') {
-          // 记录下一个要插入的下标，但不马上执行
-          this.currentSession.nextIndex = this.currentSession._index + 1;
-        } else {
-          // 如果不是 select，继续下一条
-          this.currentSession._index++;
-          this.currentSession.insertNext();
+    // 初始化对话（从 promptConfig 里读取 welcomeMessages）
+    initSessionWithWelcome() {
+      if (!this.currentPerson || !this.currentSession) return;
+      const config = characterPrompts[this.currentPerson.name];
+      const msgs = config && config.welcomeMessages ? [...config.welcomeMessages] : [];
+      if (!msgs.length) return;
+      this.currentSession.messages = [];
+      this.currentSession._queue = msgs;
+      this.currentSession._index = 0;
+      this.currentSession._nextIndex = null;
+      this.currentSession.isQueueActive = true;
+      this.currentSession.insertNext = () => {
+        if (this.currentSession._index >= this.currentSession._queue.length) {
+          this.currentSession.isQueueActive = false;
+          return;
         }
+        const raw = this.currentSession._queue[this.currentSession._index];
+        const newMsg = reactive({
+          ...raw,
+          appear: false,
+          finish: false,
+          isLoading: true
+        });
+        this.addMessageToSession(this.currentSession, newMsg);
+        const isRight = raw.type === 'right';
+        const appearDelay = isRight ? 100 : 500;
+        const finishDelay = isRight ? 250 : 1000;
+        setTimeout(() => {
+          newMsg.appear = true;
+          setTimeout(() => {
+            newMsg.finish = true;
+            newMsg.isLoading = false;
+            if (raw.type === 'select') {
+              this.currentSession._nextIndex = this.currentSession._index + 1;
+            } else {
+              this.currentSession._index++;
+              this.currentSession.insertNext();
+            }
+          }, finishDelay);
+        }, appearDelay);
+      };
+      this.currentSession.insertNext();
+    },
 
-      }, 1000); // finish 的延迟
-    }, 500);   // appear 的延迟
-  };
-
-  // 启动队列
-  this.currentSession.insertNext();
-},
-    // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
     addMessageToSession(session, newMessage) {
       session.messages.push(newMessage);
       const MAX_MESSAGES = 100;
@@ -428,7 +399,6 @@ initSessionWithWelcome() {
       this.updateCurrentMessage(session);
     },
 
-    // [CHANGED CODE HERE] 用来判断会话最后一条是否是 select
     updateCurrentMessage(session) {
       if (!session || !session.messages || session.messages.length === 0) {
         this.currentMessage = null;
@@ -437,243 +407,153 @@ initSessionWithWelcome() {
       const last = session.messages[session.messages.length - 1];
       if (last.type === 'select') {
         this.currentMessage = last;
-        this.isSelectClose = false; // 允许点击
+        this.isSelectClose = false;
       } else {
         this.currentMessage = null;
       }
     },
 
-    // 点击选项后，若有 children 就追加
-	async clickOption(option) {
-	  if (this.isSelectClose) {
-		return;
-	  }
-	  option.click = true;
-	  this.isSelectClose = true;
+    // 点击选项
+    async clickOption(option) {
+      if (this.isSelectClose) return;
+      option.click = true;
+      this.isSelectClose = true;
+      if (option.children && Array.isArray(option.children)) {
+        let i = 0;
+        const insertChild = () => {
+          if (i >= option.children.length) {
+            this.continueQueue();
+            return;
+          }
+          const raw = option.children[i];
+          const newMsg = reactive({
+            ...raw,
+            appear: false,
+            finish: false,
+            isLoading: true
+          });
+          this.addMessageToSession(this.currentSession, newMsg);
+          setTimeout(() => {
+            newMsg.appear = true;
+            setTimeout(() => {
+              newMsg.finish = true;
+              newMsg.isLoading = false;
+              i++;
+              insertChild();
+            }, 1000);
+          }, 500);
+        };
+        insertChild();
+      } else {
+        this.userInput = option.msg;
+        await this.sendMessage();
+      }
+    },
 
-	  // 若有子消息，则逐条插入
-	  if (option.children && Array.isArray(option.children)) {
-		let i = 0;
-
-		const insertChild = () => {
-		  if (i >= option.children.length) {
-			// 子消息都插完了，再继续主队列
-			this.continueQueue();
-			return;
-		  }
-		  const raw = option.children[i];
-		  const newMsg = reactive({
-			...raw,
-			appear: false,
-			finish: false,
-			isLoading: true
-		  });
-		  this.addMessageToSession(this.currentSession, newMsg);
-
-		  setTimeout(() => {
-			newMsg.appear = true;
-			setTimeout(() => {
-			  newMsg.finish = true;
-			  newMsg.isLoading = false;
-			  i++;
-			  insertChild();
-			}, 1000);
-		  }, 500);
-		};
-
-		insertChild();
-	  } else {
-		// 如果选项没子消息，直接继续主队列
-		this.continueQueue();
-	  }
-	},
-	continueQueue() {
-	  // 如果当前会话在 select 时被暂停了，需要将 _index 移动到 nextIndex
-	  if (
-		this.currentSession &&
-		this.currentSession.nextIndex != null &&
-		this.currentSession._index !== this.currentSession.nextIndex
-	  ) {
-		this.currentSession._index = this.currentSession.nextIndex;
-	  }
-	  // 然后再调用 insertNext() 继续
-	  if (this.currentSession && this.currentSession.insertNext) {
-		this.currentSession.insertNext();
-	  }
-	},
+    continueQueue() {
+      if (
+        this.currentSession &&
+        this.currentSession._nextIndex != null &&
+        this.currentSession._index !== this.currentSession._nextIndex
+      ) {
+        this.currentSession._index = this.currentSession._nextIndex;
+      }
+      if (this.currentSession && this.currentSession.insertNext) {
+        this.currentSession.insertNext();
+      }
+    },
 
     // ------------------- 发送消息 -------------------
     async sendMessage() {
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput) return;
-
-      // 1. 先把用户的消息加到右侧
-      const userMsg = {
+      const userMsg = reactive({
         type: 'right',
         name: '开拓者',
         msgType: 'text',
         msg: trimmedInput,
         icon: '/static/images/穹.png',
-        appear: true,
-        finish: true,
-      };
+        appear: false,
+        finish: false,
+        isLoading: true,
+      });
       this.addMessageToSession(this.currentSession, userMsg);
       this.scrollToBottom();
-
-      // 2. 判断是否问天气
-      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
-      console.log('意图识别结果:', intent);
-
-      if (intent === 'weather') {
-        // 如果是天气
-        const matchedCities = this.getCityCodes(trimmedInput);
-        if (matchedCities.length === 0) {
-          // 无法识别到城市 -> 直接让AI给个回答
-          const aiMsg = reactive({
-            type: 'left',
-            name: '天气查询',
-            msgType: 'text',
-            msg: '无法识别你想查的城市，可以再说具体点吗？',
-            icon:
-              characterPrompts[this.currentPerson.name]?.defaultIcon ||
-              '/static/images/default.png',
-            appear: true,
-            isLoading: false,
-            finish: true,
-          });
-          this.addMessageToSession(this.currentSession, aiMsg);
-          this.scrollToBottom();
-        } else {
-          // 对每个匹配到的城市发起查询
-          matchedCities.forEach(async city => {
-            const loadingMsg = reactive({
-              type: 'left',
-              name: '天气查询',
-              msgType: 'text',
-              msg: `正在查询${city.name}天气...`,
-              icon:
-                characterPrompts[this.currentPerson.name]?.defaultIcon ||
-                '/static/images/weather.png',
-              appear: true,
-              isLoading: true,
-              finish: false,
-            });
-            this.addMessageToSession(this.currentSession, loadingMsg);
-            this.scrollToBottom();
-
-            try {
-              const weatherInfo = await this.fetchWeather(city.code);
-              loadingMsg.isLoading = false;
-              loadingMsg.finish = true;
-
-              if (weatherInfo) {
-                loadingMsg.msg = `
-城市: ${weatherInfo.city}
-天气: ${weatherInfo.weather}
-温度: ${weatherInfo.temperature}℃
-风向: ${weatherInfo.winddirection}
-风力: ${weatherInfo.windpower}级
-湿度: ${weatherInfo.humidity}%
-                `.trim();
-              } else {
-                loadingMsg.msg = `抱歉，无法获取到${city.name}的天气信息。`;
-              }
-              this.scrollToBottom();
-            } catch (e) {
-              console.error(`天气查询接口出错 (${city.name})`, e);
-              loadingMsg.isLoading = false;
-              loadingMsg.finish = true;
-              loadingMsg.msg = `天气服务暂不可用 (${city.name})。`;
-              this.scrollToBottom();
-            }
-          });
-        }
-      } else {
-        // 3. 如果不是天气，就让大模型根据当前角色的 systemPrompt 来回答
-        const aiMsg = reactive({
-          type: 'left',
-          name: this.currentPerson ? this.currentPerson.name : '系统',
-          msgType: 'text',
-          msg: '正在获取AI回复...',
-          icon:
-            characterPrompts[this.currentPerson.name]?.defaultIcon ||
-            '/static/images/default.png',
-          appear: true,
-          isLoading: true,
-          finish: false,
-        });
-        this.addMessageToSession(this.currentSession, aiMsg);
+      const appearDelay = 100;
+      const finishDelay = 250;
+      setTimeout(() => {
+        userMsg.appear = true;
+        setTimeout(() => {
+          userMsg.finish = true;
+          userMsg.isLoading = false;
+        }, finishDelay);
+      }, appearDelay);
+      const aiMsg = reactive({
+        type: 'left',
+        name: this.currentPerson ? this.currentPerson.name : '系统',
+        msgType: 'text',
+        msg: '正在获取AI回复...',
+        icon: characterPrompts[this.currentPerson.name]?.defaultIcon || '/static/images/default.png',
+        appear: true,
+        isLoading: true,
+        finish: false,
+      });
+      this.addMessageToSession(this.currentSession, aiMsg);
+      this.scrollToBottom();
+      const conversation = this.generateChatContext();
+      try {
+        const aiReply = await this.fetchAIResponse(conversation);
+        aiMsg.isLoading = false;
+        aiMsg.finish = true;
+        aiMsg.msg = aiReply;
         this.scrollToBottom();
-
-        // 构造上下文
-        const conversation = this.generateChatContext();
-
-        try {
-          const aiReply = await this.fetchAIResponse(conversation);
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = aiReply;
-          this.scrollToBottom();
-        } catch (error) {
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = '抱歉，无法获取AI的回复。';
-          this.scrollToBottom();
+        if (!this.currentSession.finish) {
+          this.generateNextUserOptions();
         }
+      } catch (error) {
+        aiMsg.isLoading = false;
+        aiMsg.finish = true;
+        aiMsg.msg = '抱歉，无法获取AI的回复。';
+        this.scrollToBottom();
       }
-
-      // 4. 清空输入
       this.userInput = '';
       this.showSendButton = false;
     },
 
-    // 调用大模型做“意图识别”
-    async checkMessageIntentWithLLM(userMsg) {
-      return new Promise(resolve => {
-        const systemPrompt = `
-你是一个分类器，用户会发来一句话。你需要判断这句话是否是对“天气”的询问。
-如果用户是在查询某地的天气，请只回答 "weather"。
-如果不是在查询天气，包括只是感慨天气不错，请只回答 "other"。
-只输出这一个词，不要带多余内容。
-        `.trim();
+    // ------------------- 自动生成下一步用户可选回复 -------------------
+    async generateNextUserOptions() {
+      if (!this.currentSession) return;
+      try {
+        const conversation = this.generateChatContext();
+        // 并发请求生成2个建议（满足UI限制且字数严格限制）
+        const suggestions = await this.generateMultipleSuggestions(conversation);
+        if (!suggestions || suggestions.length === 0) return;
+        const selectMsg = this.buildSelectMessage(suggestions);
+        this.addMessageToSession(this.currentSession, selectMsg);
+        this.isSelectClose = false;
+        this.scrollToBottom();
+      } catch (err) {
+        console.error("生成下一步用户回复失败：", err);
+      }
+    },
 
-        wx.request({
-          url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-          method: 'POST',
-          header: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiToken}`,
-          },
-          data: {
-            model: this.model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMsg }
-            ],
-            stream: false,
-          },
-          success: res => {
-            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-              const content = res.data.choices[0].message.content.trim().toLowerCase();
-              if (content === 'weather') {
-                resolve('weather');
-              } else {
-                resolve('other');
-              }
-            } else {
-              console.error('意图识别API请求失败，状态码：', res.statusCode);
-              resolve('other');
-            }
-          },
-          fail: error => {
-            console.error('意图识别时出现错误:', error);
-            resolve('other');
-          },
-        });
+    buildSelectMessage(suggestionsArray) {
+      return reactive({
+        type: 'select',
+        name: '建议',
+        icon: characterPrompts[this.currentPerson.name]?.defaultIcon || '/static/images/default.png',
+        appear: true,
+        finish: true,
+        isLoading: false,
+        options: suggestionsArray.map(text => ({
+          msg: text,
+          hover: false,
+          click: false
+        }))
       });
     },
 
-    // 让大模型生成回复
+    // ------------------- 大模型AI回复 -------------------
     async fetchAIResponse(conversation) {
       return new Promise((resolve, reject) => {
         wx.request({
@@ -688,7 +568,7 @@ initSessionWithWelcome() {
             messages: [
               {
                 role: 'system',
-                content: characterPrompts[this.currentPerson.name]
+                content: this.currentPerson && characterPrompts[this.currentPerson.name]
                   ? characterPrompts[this.currentPerson.name].systemPrompt
                   : '这是一个默认的 systemPrompt，用于兜底处理。'
               },
@@ -703,7 +583,7 @@ initSessionWithWelcome() {
             if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
               resolve(res.data.choices[0].message.content.trim());
             } else {
-              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+              reject(new Error(`API请求失败，状态码：${res.statusCode}，返回数据：${JSON.stringify(res.data)}`));
             }
           },
           fail: error => {
@@ -716,85 +596,125 @@ initSessionWithWelcome() {
       });
     },
 
-    // 调用高德API查询天气
-    async fetchWeather(cityCode) {
-      return new Promise(resolve => {
-        const url = 'https://restapi.amap.com/v3/weather/weatherInfo';
-        const params = {
-          key: this.amapApiKey,
-          city: cityCode,
-          extensions: 'base',
-          output: 'json'
-        };
-
+    // ------------------- 并发生成单个建议 -------------------
+    async fetchSingleSuggestion(conversation) {
+      return new Promise((resolve, reject) => {
         wx.request({
-          url: url,
-          method: 'GET',
-          data: params,
+          url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiToken}`,
+          },
+          data: {
+            model: this.model,
+            temperature: 0,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  '请扮演游戏《崩坏：星穹铁道》中的开拓者，一名性格古怪、幽默风趣的冒险者。请站在我们的角度，给出一个简短建议，回复不超过25字。'
+              },
+              ...conversation.map(msg => ({
+                role: msg.role,
+                content: msg.content
+              }))
+            ],
+            stream: false,
+          },
           success: res => {
-            const data = res.data;
-            if (data.status === '1' && data.lives && data.lives.length > 0) {
-              resolve(data.lives[0]);
+            console.log("Single suggestion response:", res);
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              let content = res.data.choices[0].message.content.trim();
+              console.log("Single suggestion raw content:", content);
+              let suggestion = "";
+              try {
+                const parsed = JSON.parse(content);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  suggestion = parsed[0];
+                } else {
+                  suggestion = content;
+                }
+              } catch(e) {
+                const regex = /(?:建议|选项)[：:]\s*([^，。]+)/;
+                const match = content.match(regex);
+                if (match && match[1]) {
+                  suggestion = match[1].trim();
+                } else {
+                  suggestion = content;
+                }
+              }
+              // 截断回复，确保不超过25字
+              if (suggestion.length > 25) {
+                suggestion = suggestion.substring(0, 25);
+              }
+              resolve(suggestion);
             } else {
-              console.error('天气查询失败，错误信息:', data.info);
-              resolve(null);
+              console.error("Single suggestion API返回数据不符合预期:", res);
+              reject(new Error(`生成建议API请求失败，状态码：${res.statusCode}，返回数据：${JSON.stringify(res.data)}`));
             }
           },
           fail: error => {
-            console.error('天气查询失败:', error);
-            resolve(null);
+            console.error("Single suggestion API请求失败:", error);
+            reject(new Error(`请求失败: ${error}`));
           },
         });
       });
     },
 
-    // 更多城市名匹配
-    getCityCodes(userInput) {
-      const cityMap = {
-        '北京': '110000',
-        '上海': '310000',
-        '广州': '440100',
-        '深圳': '440300',
-        '杭州': '330100',
-        '成都': '510100',
-        '重庆': '500000',
-        '天津': '120000',
-        '武汉': '420100',
-        '西安': '610100',
-        '南京': '320100',
-        '苏州': '320500',
-        '长沙': '430100',
-        '青岛': '370200',
-        '大连': '210200',
-        '厦门': '350200',
-        '广东': '440000',
-        '江苏': '320000',
-        '四川': '510000',
-        '河北': '130000',
-        '河南': '410000',
-        '山东': '370000',
-        '辽宁': '210000',
-        '浙江': '330000',
-        '湖北': '420000',
-        '湖南': '430000',
-        '福建': '350000',
-        '安徽': '340000',
-        '江西': '360000',
-        '吉林': '220000',
-        '佛山': '440600',
-        '东莞': '441900',
-      };
-
-      const matchedCityCodes = [];
-      for (const cityName in cityMap) {
-        if (userInput.includes(cityName)) {
-          matchedCityCodes.push({
-            name: cityName,
-            code: cityMap[cityName]
-          });
-        }
+    // ------------------- 并发生成多个建议 -------------------
+    async generateMultipleSuggestions(conversation) {
+      const suggestionCount = 2;
+      const promises = [];
+      for (let i = 0; i < suggestionCount; i++) {
+        promises.push(this.fetchSingleSuggestion(conversation));
       }
-      return matchedCityCodes;
+      try {
+        const suggestions = await Promise.all(promises);
+        return suggestions;
+      } catch(e) {
+        console.error("并发生成建议失败：", e);
+        throw e;
+      }
+    },
+
+    // ------------------- 独立的请求函数 -------------------
+    makeRequest(conversation) {
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiToken}`,
+          },
+          data: {
+            model: this.model,
+            temperature: 0,
+            messages: [
+              {
+                role: 'system',
+                content: `你是一个对话助手，请根据上下文给出2~3个简短建议，输出必须是标准 JSON 数组，例如：["建议1","建议2"]。`
+              },
+              ...conversation.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+              }))
+            ],
+            stream: false,
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              resolve(res.data);
+            } else {
+              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+            }
+          },
+          fail: (error) => {
+            reject(new Error(`请求失败: ${error}`));
+          },
+        });
+      });
     },
 
     // 将当前会话消息转换为模型所需的上下文
@@ -811,25 +731,19 @@ initSessionWithWelcome() {
   },
 
   mounted() {
+    // 生成联系人
     this.setupContactsFromConfig();
-
-    // 默认选中第一个联系人和第一个会话
     if (this.contacts.length > 0) {
       this.selectPerson(this.contacts[0]);
       if (this.contacts[0].sessions.length > 0) {
         this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
-        // 这里也可以再手动触发一次 update
         this.updateCurrentMessage(this.contacts[0].sessions[0]);
       }
     }
-
-    // 定时检查是否需要自动滚动到底
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) return;
-      if (
-        Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1
-      ) {
+      if (Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1) {
         this.autoScroll = true;
       }
       if (this.autoScroll) {
@@ -841,7 +755,7 @@ initSessionWithWelcome() {
 </script>
 
 <style scoped>
-/* 你的样式基本保持不变，下方无改动 */
+/* 这里是你的样式，原样保留即可 */
 .form {
   width: 1320px;
   height: 720px;
@@ -892,11 +806,6 @@ initSessionWithWelcome() {
   border-radius: 10px;
 }
 
-.title {
-  color: white;
-  font-size: 15px;
-}
-
 .content {
   display: flex;
   flex: 1;
@@ -938,18 +847,6 @@ initSessionWithWelcome() {
 .right.sidebar-closed {
   width: calc(1320px - 60px - 20px);
   margin-left: 20px;
-}
-
-.contacts-list {
-  margin-top: 20px;
-  width: 290px;
-  height: 550px;
-  overflow-x: hidden;
-  overflow-y: scroll;
-}
-
-.contacts-list::-webkit-scrollbar {
-  width: 0;
 }
 
 .chat-box {
@@ -1124,34 +1021,6 @@ initSessionWithWelcome() {
   border-radius: 50%;
 }
 
-.person-name {
-  margin-left: 10px;
-}
-
-.person-desc {
-  margin-left: 10px;
-  color: #767879;
-}
-
-.person-online {
-  margin-left: auto;
-  margin-right: 10px;
-  color: #767879;
-}
-
-.person-online-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.person-offline {
-  margin-left: auto;
-  margin-right: 10px;
-  color: #767879;
-  height: 40px;
-  border-radius: 50%;
-}
-
 .session {
   color: #767879;
   opacity: 1;
@@ -1198,15 +1067,14 @@ initSessionWithWelcome() {
   padding-bottom: 20px;
   text-align: right;
   display: flex;
-  align-items: flex-start;  /* 修改：顶部对齐 */
+  align-items: flex-start;
   justify-content: flex-end;
 }
 
-
 .msg-left-icon {
   display: inline-block;
-  vertical-align: top;   /* 确保图标顶部对齐 */
-  align-self: flex-start; /* 额外保证 */
+  vertical-align: top;
+  align-self: flex-start;
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -1216,39 +1084,35 @@ initSessionWithWelcome() {
 .msg-left-name-and-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* 确保昵称和气泡都从顶部开始排列 */
+  align-items: flex-start;
   max-width: 300px;
 }
 
 .msg-left-name {
   color: #7b7b7b;
-  margin-bottom: 5px; /* 改为下边距 */
+  margin-bottom: 5px;
 }
 
 .msg-left-balloon {
   margin-top: 10px;
-  margin-left: 0; /* 取消左侧额外间距 */
-  background: linear-gradient(to bottom, #ebebeb 0%, #ebebeb 100%);
+  background: #ebebeb;
   border-top-right-radius: 10px;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
   padding: 10px;
   display: inline-block;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
 }
 
 .msg-right-other {
   display: flex;
   flex-direction: column;
   max-width: 300px;
-  margin-right: 10px; /* 在内容与头像之间添加间距 */
+  margin-right: 10px;
 }
 
 .msg-right-name {
   color: #7b7b7b;
   margin-bottom: 5px;
-  vertical-align: top; /* 确保昵称顶部对齐 */
 }
 
 .msg-right-content {
@@ -1260,16 +1124,6 @@ initSessionWithWelcome() {
   border-bottom-right-radius: 10px;
   padding: 10px;
   text-align: left;
-}
-/* 修改部分结束 */
-
-.msg-left-other {
-  display: inline-block;
-  margin-top: 0;
-  vertical-align: top;
-}
-
-.msg-left-content {
 }
 
 .msg-pic-content {
@@ -1285,18 +1139,6 @@ initSessionWithWelcome() {
   height: 50px;
   margin-right: 20px;
   border-radius: 50%;
-}
-
-.msg-right-other {
-  /* 已在修改部分中设置 */
-}
-
-.msg-right-name {
-  /* 已在修改部分中设置 */
-}
-
-.msg-right-content {
-  /* 已在修改部分中设置 */
 }
 
 @keyframes blink {
@@ -1399,21 +1241,6 @@ initSessionWithWelcome() {
   background-size: 90% 100%;
 }
 
-.foot {
-  margin-top: 20px;
-  text-align: center;
-  color: #ffffff;
-}
-
-.foot a {
-  color: #ffffff;
-  text-decoration: none;
-}
-
-.foot div {
-  margin: 5px 0;
-}
-
 .input-area {
   display: flex;
   padding: 10px;
@@ -1460,16 +1287,5 @@ initSessionWithWelcome() {
   background-color: #6a7b8c;
   transform: scale(1.05);
   opacity: 0.8;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.left,
-.right {
-  flex-shrink: 0;
 }
 </style>

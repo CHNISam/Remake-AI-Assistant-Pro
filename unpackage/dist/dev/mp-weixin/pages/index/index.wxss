@@ -1,5 +1,5 @@
 
-/* 你的样式基本保持不变，下方无改动 */
+/* 这里是你的样式，原样保留即可 */
 .form.data-v-1cf27b2a {
   width: 1320px;
   height: 720px;
@@ -42,10 +42,6 @@
   background-color: #535c68;
   border-radius: 10px;
 }
-.title.data-v-1cf27b2a {
-  color: white;
-  font-size: 15px;
-}
 .content.data-v-1cf27b2a {
   display: flex;
   flex: 1;
@@ -81,16 +77,6 @@
 .right.sidebar-closed.data-v-1cf27b2a {
   width: calc(1320px - 60px - 20px);
   margin-left: 20px;
-}
-.contacts-list.data-v-1cf27b2a {
-  margin-top: 20px;
-  width: 290px;
-  height: 550px;
-  overflow-x: hidden;
-  overflow-y: scroll;
-}
-.contacts-list.data-v-1cf27b2a::-webkit-scrollbar {
-  width: 0;
 }
 .chat-box.data-v-1cf27b2a {
   width: 100%;
@@ -240,29 +226,6 @@
   height: 50px;
   border-radius: 50%;
 }
-.person-name.data-v-1cf27b2a {
-  margin-left: 10px;
-}
-.person-desc.data-v-1cf27b2a {
-  margin-left: 10px;
-  color: #767879;
-}
-.person-online.data-v-1cf27b2a {
-  margin-left: auto;
-  margin-right: 10px;
-  color: #767879;
-}
-.person-online-icon.data-v-1cf27b2a {
-  width: 20px;
-  height: 20px;
-}
-.person-offline.data-v-1cf27b2a {
-  margin-left: auto;
-  margin-right: 10px;
-  color: #767879;
-  height: 40px;
-  border-radius: 50%;
-}
 .session.data-v-1cf27b2a {
   color: #767879;
   opacity: 1;
@@ -304,13 +267,13 @@
   padding-bottom: 20px;
   text-align: right;
   display: flex;
-  align-items: flex-start;  /* 修改：顶部对齐 */
+  align-items: flex-start;
   justify-content: flex-end;
 }
 .msg-left-icon.data-v-1cf27b2a {
   display: inline-block;
-  vertical-align: top;   /* 确保图标顶部对齐 */
-  align-self: flex-start; /* 额外保证 */
+  vertical-align: top;
+  align-self: flex-start;
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -319,35 +282,31 @@
 .msg-left-name-and-content.data-v-1cf27b2a {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* 确保昵称和气泡都从顶部开始排列 */
+  align-items: flex-start;
   max-width: 300px;
 }
 .msg-left-name.data-v-1cf27b2a {
   color: #7b7b7b;
-  margin-bottom: 5px; /* 改为下边距 */
+  margin-bottom: 5px;
 }
 .msg-left-balloon.data-v-1cf27b2a {
   margin-top: 10px;
-  margin-left: 0; /* 取消左侧额外间距 */
-  background: linear-gradient(to bottom, #ebebeb 0%, #ebebeb 100%);
+  background: #ebebeb;
   border-top-right-radius: 10px;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
   padding: 10px;
   display: inline-block;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
 }
 .msg-right-other.data-v-1cf27b2a {
   display: flex;
   flex-direction: column;
   max-width: 300px;
-  margin-right: 10px; /* 在内容与头像之间添加间距 */
+  margin-right: 10px;
 }
 .msg-right-name.data-v-1cf27b2a {
   color: #7b7b7b;
   margin-bottom: 5px;
-  vertical-align: top; /* 确保昵称顶部对齐 */
 }
 .msg-right-content.data-v-1cf27b2a {
   margin-top: 10px;
@@ -358,14 +317,6 @@
   border-bottom-right-radius: 10px;
   padding: 10px;
   text-align: left;
-}
-/* 修改部分结束 */
-.msg-left-other.data-v-1cf27b2a {
-  display: inline-block;
-  margin-top: 0;
-  vertical-align: top;
-}
-.msg-left-content.data-v-1cf27b2a {
 }
 .msg-pic-content.data-v-1cf27b2a {
   width: 150px;
@@ -379,15 +330,6 @@
   height: 50px;
   margin-right: 20px;
   border-radius: 50%;
-}
-.msg-right-other.data-v-1cf27b2a {
-  /* 已在修改部分中设置 */
-}
-.msg-right-name.data-v-1cf27b2a {
-  /* 已在修改部分中设置 */
-}
-.msg-right-content.data-v-1cf27b2a {
-  /* 已在修改部分中设置 */
 }
 @keyframes blink-1cf27b2a {
 0% {
@@ -471,18 +413,6 @@
   opacity: 0;
   background-size: 90% 100%;
 }
-.foot.data-v-1cf27b2a {
-  margin-top: 20px;
-  text-align: center;
-  color: #ffffff;
-}
-.foot a.data-v-1cf27b2a {
-  color: #ffffff;
-  text-decoration: none;
-}
-.foot div.data-v-1cf27b2a {
-  margin: 5px 0;
-}
 .input-area.data-v-1cf27b2a {
   display: flex;
   padding: 10px;
@@ -527,13 +457,4 @@
   background-color: #6a7b8c;
   transform: scale(1.05);
   opacity: 0.8;
-}
-.form.data-v-1cf27b2a {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.left.data-v-1cf27b2a,
-.right.data-v-1cf27b2a {
-  flex-shrink: 0;
 }
