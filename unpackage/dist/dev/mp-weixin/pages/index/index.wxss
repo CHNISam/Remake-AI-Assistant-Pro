@@ -1,5 +1,5 @@
 
-/* 保持之前的样式不变 */
+/* 你的样式基本保持不变，下方无改动 */
 .form.data-v-1cf27b2a {
   width: 1320px;
   height: 720px;
@@ -46,8 +46,6 @@
   color: white;
   font-size: 15px;
 }
-
-/* 根据sidebar状态调整布局 */
 .content.data-v-1cf27b2a {
   display: flex;
   flex: 1;
@@ -66,7 +64,7 @@
   opacity: 1;
 }
 .left.sidebar-closed.data-v-1cf27b2a {
-  width: 0px; /* 折叠状态下的宽度，可根据需要调整 */
+  width: 0px;
   opacity: 1;
 }
 .right.data-v-1cf27b2a {
@@ -76,14 +74,12 @@
   flex-direction: column;
   transition: width 0.3s ease-in-out, margin-left 0.3s ease-in-out;
 }
-
-/* 当sidebar折叠时，.right部分应拓宽以适应新的布局 */
 .right.sidebar-open.data-v-1cf27b2a {
   width: 920px;
   margin-left: 20px;
 }
 .right.sidebar-closed.data-v-1cf27b2a {
-  width: calc(1320px - 60px - 20px); /* 计算剩余宽度：总宽度 - 折叠后sidebar宽度 - 间距 */
+  width: calc(1320px - 60px - 20px);
   margin-left: 20px;
 }
 .contacts-list.data-v-1cf27b2a {
@@ -177,8 +173,7 @@
   position: relative;
   background-color: #cbcbcb;
   max-height: 0;
-  transition: max-height 1.5s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.25s ease-in-out;
+  transition: max-height 1.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s;
   opacity: 0;
   overflow: hidden;
   flex-shrink: 0;
@@ -374,16 +369,12 @@
     opacity: 0;
 }
 }
-
-/* 加载动画容器 */
 .msg-left-circle-box.data-v-1cf27b2a {
   margin-top: 5px;
   margin-left: 13px;
   display: flex;
   align-items: center;
 }
-
-/* 圆点样式 */
 .msg-circle-1.data-v-1cf27b2a,
 .msg-circle-2.data-v-1cf27b2a,
 .msg-circle-3.data-v-1cf27b2a {
@@ -406,8 +397,6 @@
   margin-left: 4px;
   animation-delay: 0.4s;
 }
-
-/* 动画 */
 .fade-enter-active.data-v-1cf27b2a {
   transition: opacity 0.5s;
 }
@@ -448,11 +437,6 @@
   opacity: 0;
   background-size: 90% 100%;
 }
-
-/* * {
-  -webkit-user-select: none;
-  user-select: none;
-} */
 .foot.data-v-1cf27b2a {
   margin-top: 20px;
   text-align: center;
@@ -515,6 +499,7 @@
   flex-direction: column;
   justify-content: space-between;
 }
-.left.data-v-1cf27b2a, .right.data-v-1cf27b2a {
+.left.data-v-1cf27b2a,
+.right.data-v-1cf27b2a {
   flex-shrink: 0;
 }

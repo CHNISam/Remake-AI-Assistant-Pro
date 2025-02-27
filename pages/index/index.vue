@@ -8,8 +8,14 @@
         <span class="title" v-if="isSidebarOpen">短信</span>
       </div>
 
-      <div class="content" :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }">
-        <div class="left" :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }">
+      <div
+        class="content"
+        :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }"
+      >
+        <div
+          class="left"
+          :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }"
+        >
           <!-- 联系人列表 -->
           <div class="contacts-list" v-if="isSidebarOpen">
             <div v-for="(p, index) in contacts" :key="p.name + index">
@@ -61,7 +67,10 @@
         </div>
 
         <!-- 聊天框 -->
-        <div class="right" :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }">
+        <div
+          class="right"
+          :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }"
+        >
           <div class="chat-box" :class="{ 'chat-box-active': sessionSelected }">
             <transition name="fade">
               <div class="chat-box-container" v-if="sessionChanged">
@@ -113,11 +122,7 @@
                                 <div class="msg-left-content">{{ m.msg }}</div>
                               </div>
                               <div v-else>
-                                <img
-                                  class="msg-pic-content"
-                                  :src="m.src"
-                                  alt=""
-                                />
+                                <img class="msg-pic-content" :src="m.src" alt="" />
                               </div>
                             </div>
                           </div>
@@ -132,10 +137,7 @@
                           <!-- 聊天内容-昵称 -->
                           <div class="msg-right-name">{{ m.name }}</div>
                           <!-- 聊天内容-消息 -->
-                          <div
-                            v-if="m.msgType === 'text'"
-                            class="msg-right-content"
-                          >
+                          <div v-if="m.msgType === 'text'" class="msg-right-content">
                             {{ m.msg }}
                           </div>
                           <img
@@ -158,8 +160,11 @@
                       </transition>
                     </div>
                   </template>
-                  <!-- TODO: 优化底部水平线显示条件 -->
-                  <hr v-if="currentSession && currentSession.finish" class="chat-box-middle-hr" />
+                  <!-- 底部水平线 -->
+                  <hr
+                    v-if="currentSession && currentSession.finish"
+                    class="chat-box-middle-hr"
+                  />
                 </div>
                 <!-- 聊天框-底部盒子（回复选项） -->
                 <div class="chat-box-bottom-grow"></div>
@@ -213,12 +218,9 @@
   </div>
 </template>
 
-
-
 <script>
 import { reactive } from 'vue';
-// 引入刚才写好的 prompt 配置
-import { characterPrompts } from '/config/promptConfig.js'; 
+import { characterPrompts } from '/config/promptConfig.js'; // 引入你的prompt配置
 
 export default {
   name: 'MessageApp',
@@ -229,38 +231,30 @@ export default {
       showSendButton: false, // 控制发送按钮的显示
       // 大模型API相关
       model: 'glm-4-flash', // 模型名称（固定值）
-      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ',  // 你申请到的token，比如 "76915445xxxx"
+      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ', // 你的token
       // 天气API相关
-      amapApiKey: '79452bccf16e1cd79877f79614b3bd23', 
+      amapApiKey: '79452bccf16e1cd79877f79614b3bd23',
 
-      // 联系人数据
+      // 联系人数据（直接从 promptConfig 中构建）
       contacts: [],
-      // 表示是否已经选中过一个会话，用于改变聊天窗底色
       sessionSelected: false,
-      // 当前联系人对象，用于显示聊天窗顶部的昵称、描述
       currentPerson: null,
-      // 当前消息会话对象，用于聊天窗消息遍历
       currentSession: null,
-      // 表示会话是否切换完成，用于会话切换渐变动画
       sessionChanged: false,
-      // 表示当前会话最后一条信息，用于option类型的消息绘制
-      currentMessage: null,
-      // 默认只显示最近的 50 条消息
+      currentMessage: null, // 指向会话最后一条select消息
       maxVisibleMessages: 50,
-      // 表示选项是否被选中（确认）
-      isSelectClose: false,
-      // 滚轮滑动相关
-      autoScroll: true, // 表示是否自动下滚
-      lastScrollTop: 0, // 表示上一次的滚动距离
-
-      // 是否展开sidebar
+      isSelectClose: false, // 用于点击选项后把选项折叠
+      autoScroll: true,
+      lastScrollTop: 0,
       isSidebarOpen: true,
     };
   },
   computed: {
+    // 是否是一个 select 消息
     isSelectMessage() {
       return this.currentMessage && this.currentMessage.type === 'select';
     },
+    // 只显示最近 maxVisibleMessages 条
     visibleMessages() {
       return this.currentSession && this.currentSession.messages
         ? this.currentSession.messages.slice(-this.maxVisibleMessages)
@@ -268,17 +262,282 @@ export default {
     },
   },
   methods: {
+    // 从 promptConfig 里生成联系人
+    setupContactsFromConfig() {
+      const allCharacters = Object.values(characterPrompts);
+      this.contacts = allCharacters.map(char => {
+        return {
+          name: char.name,
+          icon: char.defaultIcon,
+          desc: char.desc || '角色简介',
+          select: false,
+          hover: false,
+          sessions: [
+            {
+              name: `与${char.name}的会话`,
+              messages: [],
+              select: false,
+              hover: false,
+              finish: false,
+            }
+          ],
+        };
+      });
+    },
+
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
     },
 
-    // ------------------- 优化：大模型意图识别 -------------------
-    /**
-     * 调用大模型判断用户消息是否为"天气"查询
-     * 输出只有两个可能： "weather" 或 "other"
-     */
+    scrollToBottom() {
+      this.$nextTick(() => {
+        if (this.$refs.chatBoxMiddle) {
+          this.$refs.chatBoxMiddle.scrollTo({
+            top: this.$refs.chatBoxMiddle.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      });
+    },
+    onChatBoxMiddleScroll() {
+      const cm = this.$refs.chatBoxMiddle;
+      if (!cm) return;
+      const st = cm.scrollTop;
+      // 如果用户向上滚动，则取消自动滚动
+      if (st < this.lastScrollTop) {
+        this.autoScroll = false;
+      }
+      this.lastScrollTop = st;
+    },
+
+    toggleSendButton() {
+      this.showSendButton = this.userInput.trim() !== '';
+    },
+
+    // 切换联系人
+    selectPerson(person) {
+      if (!person.select) {
+        for (let p of this.contacts) {
+          p.select = false;
+        }
+        person.select = true;
+      } else {
+        person.select = false;
+      }
+    },
+
+    // 切换会话
+    selectSession(person, session) {
+      if (session === this.currentSession) {
+        return;
+      }
+      // 先取消已有选中
+      for (let p of this.contacts) {
+        for (let s of p.sessions) {
+          s.select = false;
+        }
+      }
+      session.select = true;
+      this.sessionSelected = true;
+      this.sessionChanged = false;
+
+      setTimeout(() => {
+        this.sessionChanged = true;
+      }, 100);
+
+      this.currentPerson = person;
+      this.currentSession = session;
+
+      // 如果当前会话没有消息，注入开场白
+      if (!session.messages || session.messages.length === 0) {
+        this.initSessionWithWelcome();
+      }
+      // [CHANGED CODE HERE] 每次切换会话后检查最后一条消息是否为select
+      this.updateCurrentMessage(session);
+
+      this.scrollToBottom();
+    },
+
+    // [CHANGED CODE HERE] 改成读取 characterPrompts 的 welcomeMessages
+    initSessionWithWelcome() {
+      if (!this.currentPerson || !this.currentSession) return;
+      const config = characterPrompts[this.currentPerson.name];
+      const msgs = config && config.welcomeMessages ? config.welcomeMessages : [];
+      // 给所有消息加上 appear: true / finish: true
+      const welcome = msgs.map(m => ({ ...m, appear: true, finish: true }));
+      this.currentSession.messages = welcome;
+    },
+
+    // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
+    addMessageToSession(session, newMessage) {
+      session.messages.push(newMessage);
+      const MAX_MESSAGES = 100;
+      if (session.messages.length > MAX_MESSAGES) {
+        session.messages.splice(0, session.messages.length - MAX_MESSAGES);
+      }
+      this.updateCurrentMessage(session);
+    },
+
+    // [CHANGED CODE HERE] 用来判断会话最后一条是否是 select
+    updateCurrentMessage(session) {
+      if (!session || !session.messages || session.messages.length === 0) {
+        this.currentMessage = null;
+        return;
+      }
+      const last = session.messages[session.messages.length - 1];
+      if (last.type === 'select') {
+        this.currentMessage = last;
+        this.isSelectClose = false; // 允许点击
+      } else {
+        this.currentMessage = null;
+      }
+    },
+
+    // 点击选项后，若有 children 就追加
+    async clickOption(option) {
+      if (this.isSelectClose) {
+        return;
+      }
+      option.click = true;
+      this.isSelectClose = true;
+
+      // [CHANGED CODE HERE] 插入 children
+      if (option.children && Array.isArray(option.children)) {
+        option.children.forEach(childMsg => {
+          const newMsg = { ...childMsg, appear: true, finish: true };
+          this.addMessageToSession(this.currentSession, newMsg);
+        });
+      }
+    },
+
+    // ------------------- 发送消息 -------------------
+    async sendMessage() {
+      const trimmedInput = this.userInput.trim();
+      if (!trimmedInput) return;
+
+      // 1. 先把用户的消息加到右侧
+      const userMsg = {
+        type: 'right',
+        name: '开拓者',
+        msgType: 'text',
+        msg: trimmedInput,
+        icon: '/static/images/穹.png',
+        appear: true,
+        finish: true,
+      };
+      this.addMessageToSession(this.currentSession, userMsg);
+      this.scrollToBottom();
+
+      // 2. 判断是否问天气
+      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
+      console.log('意图识别结果:', intent);
+
+      if (intent === 'weather') {
+        // 如果是天气
+        const matchedCities = this.getCityCodes(trimmedInput);
+        if (matchedCities.length === 0) {
+          // 无法识别到城市 -> 直接让AI给个回答
+          const aiMsg = reactive({
+            type: 'left',
+            name: '天气查询',
+            msgType: 'text',
+            msg: '无法识别你想查的城市，可以再说具体点吗？',
+            icon:
+              characterPrompts[this.currentPerson.name]?.defaultIcon ||
+              '/static/images/default.png',
+            appear: true,
+            isLoading: false,
+            finish: true,
+          });
+          this.addMessageToSession(this.currentSession, aiMsg);
+          this.scrollToBottom();
+        } else {
+          // 对每个匹配到的城市发起查询
+          matchedCities.forEach(async city => {
+            const loadingMsg = reactive({
+              type: 'left',
+              name: '天气查询',
+              msgType: 'text',
+              msg: `正在查询${city.name}天气...`,
+              icon:
+                characterPrompts[this.currentPerson.name]?.defaultIcon ||
+                '/static/images/weather.png',
+              appear: true,
+              isLoading: true,
+              finish: false,
+            });
+            this.addMessageToSession(this.currentSession, loadingMsg);
+            this.scrollToBottom();
+
+            try {
+              const weatherInfo = await this.fetchWeather(city.code);
+              loadingMsg.isLoading = false;
+              loadingMsg.finish = true;
+
+              if (weatherInfo) {
+                loadingMsg.msg = `
+城市: ${weatherInfo.city}
+天气: ${weatherInfo.weather}
+温度: ${weatherInfo.temperature}℃
+风向: ${weatherInfo.winddirection}
+风力: ${weatherInfo.windpower}级
+湿度: ${weatherInfo.humidity}%
+                `.trim();
+              } else {
+                loadingMsg.msg = `抱歉，无法获取到${city.name}的天气信息。`;
+              }
+              this.scrollToBottom();
+            } catch (e) {
+              console.error(`天气查询接口出错 (${city.name})`, e);
+              loadingMsg.isLoading = false;
+              loadingMsg.finish = true;
+              loadingMsg.msg = `天气服务暂不可用 (${city.name})。`;
+              this.scrollToBottom();
+            }
+          });
+        }
+      } else {
+        // 3. 如果不是天气，就让大模型根据当前角色的 systemPrompt 来回答
+        const aiMsg = reactive({
+          type: 'left',
+          name: this.currentPerson ? this.currentPerson.name : '系统',
+          msgType: 'text',
+          msg: '正在获取AI回复...',
+          icon:
+            characterPrompts[this.currentPerson.name]?.defaultIcon ||
+            '/static/images/default.png',
+          appear: true,
+          isLoading: true,
+          finish: false,
+        });
+        this.addMessageToSession(this.currentSession, aiMsg);
+        this.scrollToBottom();
+
+        // 构造上下文
+        const conversation = this.generateChatContext();
+
+        try {
+          const aiReply = await this.fetchAIResponse(conversation);
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = aiReply;
+          this.scrollToBottom();
+        } catch (error) {
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = '抱歉，无法获取AI的回复。';
+          this.scrollToBottom();
+        }
+      }
+
+      // 4. 清空输入
+      this.userInput = '';
+      this.showSendButton = false;
+    },
+
+    // 调用大模型做“意图识别”
     async checkMessageIntentWithLLM(userMsg) {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const systemPrompt = `
 你是一个分类器，用户会发来一句话。你需要判断这句话是否是对“天气”的询问。
 如果用户是在查询某地的天气，请只回答 "weather"。
@@ -291,7 +550,7 @@ export default {
           method: 'POST',
           header: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiToken}` // 确保使用正确的格式
+            Authorization: `Bearer ${this.apiToken}`,
           },
           data: {
             model: this.model,
@@ -299,13 +558,12 @@ export default {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userMsg }
             ],
-            stream: false
+            stream: false,
           },
-          success: (res) => {
+          success: res => {
             if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-              // 拿到大模型返回的文本
               const content = res.data.choices[0].message.content.trim().toLowerCase();
-              if (content === 'weather') { // 使用严格比较
+              if (content === 'weather') {
                 resolve('weather');
               } else {
                 resolve('other');
@@ -315,15 +573,15 @@ export default {
               resolve('other');
             }
           },
-          fail: (error) => {
+          fail: error => {
             console.error('意图识别时出现错误:', error);
             resolve('other');
-          }
+          },
         });
       });
     },
 
-    // -------------- 优化后的大模型回复函数 (普通对话) --------------
+    // 让大模型生成回复
     async fetchAIResponse(conversation) {
       return new Promise((resolve, reject) => {
         wx.request({
@@ -331,7 +589,7 @@ export default {
           method: 'POST',
           header: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiToken}` // 确保使用正确的格式
+            Authorization: `Bearer ${this.apiToken}`,
           },
           data: {
             model: this.model,
@@ -347,28 +605,28 @@ export default {
                 content: msg.content
               }))
             ],
-            stream: false
+            stream: false,
           },
-          success: (res) => {
+          success: res => {
             if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
-              resolve(res.data.choices[0].message.content);
+              resolve(res.data.choices[0].message.content.trim());
             } else {
               reject(new Error(`API请求失败，状态码：${res.statusCode}`));
             }
           },
-          fail: (error) => {
+          fail: error => {
             reject(new Error(`请求失败: ${error}`));
-          }
+          },
         });
-      }).catch((error) => {
+      }).catch(error => {
         console.error('AI回复错误:', error);
         return '抱歉，无法获取AI的回复。';
       });
     },
 
-    // ------------------- 优化后的天气查询函数 (前端直接请求高德API) -------------------
+    // 调用高德API查询天气
     async fetchWeather(cityCode) {
-      return new Promise((resolve, reject) => {
+      return new Promise(resolve => {
         const url = 'https://restapi.amap.com/v3/weather/weatherInfo';
         const params = {
           key: this.amapApiKey,
@@ -381,7 +639,7 @@ export default {
           url: url,
           method: 'GET',
           data: params,
-          success: (res) => {
+          success: res => {
             const data = res.data;
             if (data.status === '1' && data.lives && data.lives.length > 0) {
               resolve(data.lives[0]);
@@ -390,15 +648,15 @@ export default {
               resolve(null);
             }
           },
-          fail: (error) => {
+          fail: error => {
             console.error('天气查询失败:', error);
             resolve(null);
-          }
+          },
         });
       });
     },
 
-    // ------------------- 扩展：更全面的城市名映射 -------------------
+    // 更多城市名匹配
     getCityCodes(userInput) {
       const cityMap = {
         '北京': '110000',
@@ -431,11 +689,11 @@ export default {
         '安徽': '340000',
         '江西': '360000',
         '吉林': '220000',
-        // 添加更多城市
+        '佛山': '440600',
+        '东莞': '441900',
       };
 
       const matchedCityCodes = [];
-
       for (const cityName in cityMap) {
         if (userInput.includes(cityName)) {
           matchedCityCodes.push({
@@ -444,463 +702,42 @@ export default {
           });
         }
       }
-
       return matchedCityCodes;
     },
 
-    // 从XML文档加载聊天记录
-    loadXML(xml) {
-      this.contacts = []; // 清空数组先
-
-      // 遍历所有联系人
-      const persons = xml.getElementsByTagName('person');
-
-      for (let person of persons) {
-        const newPerson = {
-          name: person.getAttribute('name'),
-          icon: person.getAttribute('icon'),
-          desc: person.getAttribute('desc'),
-          sessions: [],
-          select: false,
-          hover: false,
-        };
-
-        this.contacts.push(newPerson);
-        // 遍历联系人中的所有会话，并构建必要信息
-        const sessions = person.getElementsByTagName('session');
-
-        for (let session of sessions) {
-          newPerson.sessions.push({
-            name: session.firstElementChild.textContent,
-            messages: [],
-            sessionNode: session,
-            nextNode: session.firstElementChild,
-            select: false,
-            hover: false,
-            finish: false,
-          });
-        }
-      }
-    },
-
-    addMessageToSession(session, newMessage) {
-      session.messages.push(newMessage);
-      // 限制总长度
-      const MAX_MESSAGES = 100;
-      if (session.messages.length > MAX_MESSAGES) {
-        session.messages.splice(0, session.messages.length - MAX_MESSAGES);
-      }
-    },
-
-    async sendNextNode(session) {
-      if (!session.nextNode) return;
-
-      switch (session.nextNode.tagName) {
-        case 'left':
-        case 'right': {
-          const msgObj = reactive({
-            type: session.nextNode.tagName,
-            name: session.nextNode.getAttribute('name'),
-            icon: session.nextNode.getAttribute('icon'), // 确保从节点获取正确的icon
-            msgType: session.nextNode.getAttribute('type'),
-            msg: session.nextNode.textContent,
-            src: session.nextNode.getAttribute('src'),
-            appear: false,
-            finish: false,
-            isLoading: false,
-          });
-
-          this.currentMessage = msgObj;
-          const finishTime =
-            session.nextNode.tagName === 'left'
-              ? parseFloat(session.nextNode.getAttribute('time') || '2') * 1000
-              : 250;
-
-          this.addMessageToSession(session, msgObj);
-
-          setTimeout(() => {
-            msgObj.appear = true;
-            this.$forceUpdate();
-          }, 100);
-
-          setTimeout(() => {
-            msgObj.finish = true;
-          }, finishTime + 100);
-
-          let next = null;
-          if (session.nextNode.nextElementSibling != null) {
-            next = session.nextNode.nextElementSibling;
-          } else {
-            next = session.nextNode;
-            let flag = false;
-            while (next.parentNode.tagName !== 'session') {
-              if (next.parentNode.tagName === 'option') {
-                next = next.parentNode.parentNode;
-              }
-
-              if (next.nextElementSibling != null) {
-                next = next.nextElementSibling;
-                flag = true;
-                break;
-              }
-            }
-
-            if (!flag) {
-              next = null;
-            }
-          }
-
-          if (next != null) {
-            session.nextNode = next;
-            setTimeout(() => {
-              this.sendNextNode(session);
-            }, finishTime + 600);
-          } else {
-            setTimeout(() => {
-              session.finish = true;
-            }, finishTime + 600);
-          }
-
-          break;
-        }
-
-        case 'select': {
-          const options = [];
-          for (let option of session.nextNode.children) {
-            options.push({
-              msg: option.getAttribute('msg'),
-              nextNode: option.firstElementChild,
-              click: false,
-              hover: false,
-            });
-          }
-          const msgObj = reactive({
-            type: 'select',
-            msgType: session.nextNode.getAttribute('type'),
-            options,
-            name: this.currentPerson ? this.currentPerson.name : '系统', // 确保有name字段
-            icon: this.currentPerson ? this.currentPerson.icon : '/static/images/default.png', // 使用当前角色的icon
-          });
-          this.addMessageToSession(session, msgObj);
-          this.currentMessage = msgObj;
-          this.isSelectClose = false;
-          break;
-        }
-
-        default:
-          console.warn(`Unhandled tag: ${session.nextNode.tagName}`);
-      }
-    },
-
-    async clickOption(option) {
-      if (this.isSelectClose) {
-        return;
-      }
-
-      option.click = true;
-      this.isSelectClose = true;
-      setTimeout(async () => {
-        this.currentSession.nextNode = option.nextNode;
-        await this.sendNextNode(this.currentSession);
-      }, 250);
-    },
-
-    selectPerson(person) {
-      if (!person.select) {
-        for (let p of this.contacts) {
-          p.select = false;
-        }
-        person.select = true;
-      } else {
-        person.select = false;
-      }
-    },
-
-    selectSession(person, session) {
-      if (session === this.currentSession) {
-        return;
-      }
-
-      for (let p of this.contacts) {
-        for (let s of p.sessions) {
-          s.select = false;
-        }
-      }
-
-      if (this.currentSession != null) {
-        for (let m of this.currentSession.messages) {
-          if (m.finish === false) {
-            m.finish = true;
-          }
-        }
-      }
-
-      session.select = true;
-      this.sessionSelected = true;
-
-      this.sessionChanged = false;
-      setTimeout(() => {
-        this.sessionChanged = true;
-      }, 100);
-
-      this.currentPerson = person;
-      this.currentSession = session;
-
-      setTimeout(() => {
-        this.sendNextNode(this.currentSession);
-      }, 250);
-    },
-
-    scrollToBottom() {
-      this.$nextTick(() => {
-        if (this.$refs.chatBoxMiddle) {
-          this.$refs.chatBoxMiddle.scrollTo({
-            top: this.$refs.chatBoxMiddle.scrollHeight,
-            behavior: 'smooth',
-          });
-        }
-      });
-    },
-
-    onChatBoxMiddleScroll() {
-      const cm = this.$refs.chatBoxMiddle;
-      if (!cm) return;
-
-      const st = cm.scrollTop;
-
-      if (st < this.lastScrollTop) {
-        this.autoScroll = false;
-      }
-
-      this.lastScrollTop = st;
-    },
-
+    // 将当前会话消息转换为模型所需的上下文
     generateChatContext() {
       if (!this.currentSession || !this.currentSession.messages) return [];
-      return this.currentSession.messages.map((msg) => {
-        if (msg.type === "left") {
-          return { role: 'assistant', content: msg.msg, name: msg.name };
+      return this.currentSession.messages.map(msg => {
+        if (msg.type === 'left') {
+          return { role: 'assistant', content: msg.msg };
         } else {
-          return { role: 'user', content: msg.msg, name: msg.name };
+          return { role: 'user', content: msg.msg };
         }
       });
     },
-
-    toggleSendButton() {
-      this.showSendButton = this.userInput.trim() !== '';
-    },
-
-    // ------------------- 关键：集成大模型意图判断 -------------------
-    async sendMessage() {
-      const trimmedInput = this.userInput.trim();
-      if (!trimmedInput) return;
-
-      // 1. 将用户消息插到右侧气泡
-      const userMsg = {
-        type: 'right',
-        name: '开拓者',
-        msgType: 'text',
-        msg: trimmedInput,
-        icon: "/static/images/穹.png", // 用户头像固定
-        appear: true,
-        finish: true
-      };
-      this.addMessageToSession(this.currentSession, userMsg);
-      this.scrollToBottom();
-
-      // 2. 调用大模型做“意图识别”
-      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
-      console.log('意图识别结果:', intent);
-
-      // 3. 如果是天气查询，则调用天气API
-      if (intent === 'weather') {
-        const matchedCities = this.getCityCodes(trimmedInput);
-
-        if (matchedCities.length === 0) {
-          // 无法识别城市名称，调用大模型处理
-          const aiMsg = reactive({
-            type: 'left',
-            name: '天气查询', // 设置为“天气查询”
-            msgType: 'text',
-            msg: '正在处理您的天气查询请求...',
-            icon: characterPrompts[this.currentPerson.name]
-              ? characterPrompts[this.currentPerson.name].defaultIcon
-              : '/static/images/default.png', // 使用AI角色的默认头像
-            appear: true,
-            isLoading: true,
-            finish: false
-          });
-          this.addMessageToSession(this.currentSession, aiMsg);
-          this.scrollToBottom();
-
-          const conversation = this.generateChatContext();
-
-          try {
-            const aiReply = await this.fetchAIResponse(conversation);
-            aiMsg.isLoading = false;
-            aiMsg.finish = true;
-            aiMsg.msg = aiReply;
-            this.scrollToBottom();
-          } catch (error) {
-            aiMsg.isLoading = false;
-            aiMsg.finish = true;
-            aiMsg.msg = '抱歉，无法获取AI的回复。';
-            this.scrollToBottom();
-          }
-        } else {
-          // 对于每个匹配到的城市，插入一条“正在查询天气...”的消息，并发起 API 请求
-          matchedCities.forEach(async (city) => {
-            // 插入“正在查询天气...”的消息
-            const weatherMsgLoading = reactive({
-              type: 'left',
-              name: '天气查询', // 设置为“天气查询”
-              msgType: 'text',
-              msg: `正在查询${city.name}的天气...`,
-              icon: characterPrompts[this.currentPerson.name]
-                ? characterPrompts[this.currentPerson.name].weatherIcon || characterPrompts[this.currentPerson.name].defaultIcon
-                : '/static/images/weather.png', // 使用AI角色的天气相关头像或默认
-              appear: true,
-              isLoading: true,
-              finish: false
-            });
-            this.addMessageToSession(this.currentSession, weatherMsgLoading);
-            this.scrollToBottom();
-
-            try {
-              const weatherInfo = await this.fetchWeather(city.code);
-              weatherMsgLoading.isLoading = false;
-              weatherMsgLoading.finish = true;
-
-              if (weatherInfo) {
-                weatherMsgLoading.msg = `
-城市: ${weatherInfo.city}
-天气: ${weatherInfo.weather}
-温度: ${weatherInfo.temperature}℃
-风向: ${weatherInfo.winddirection}
-风力: ${weatherInfo.windpower}级
-湿度: ${weatherInfo.humidity}%
-                `.trim();
-              } else {
-                weatherMsgLoading.msg = `抱歉，无法获取到${city.name}的天气信息。`;
-              }
-              this.scrollToBottom();
-            } catch (e) {
-              console.error(`天气查询接口出错 (${city.name})`, e);
-              weatherMsgLoading.isLoading = false;
-              weatherMsgLoading.finish = true;
-              weatherMsgLoading.msg = `天气服务暂不可用 (${city.name})。`;
-              this.scrollToBottom();
-            }
-          });
-        }
-      } else {
-        // 4. 如果不是天气查询，则走原有的 AI 回复流程
-        const aiMsg = reactive({
-          type: 'left',
-          name: this.currentPerson ? this.currentPerson.name : '系统', // 动态读取当前联系人的名字
-          msgType: 'text',
-          msg: '正在获取AI回复...',
-          icon: characterPrompts[this.currentPerson.name]
-            ? characterPrompts[this.currentPerson.name].defaultIcon
-            : '/static/images/default.png', // 使用AI角色的默认头像
-          appear: true,
-          isLoading: true,
-          finish: false
-        });
-        this.addMessageToSession(this.currentSession, aiMsg);
-        this.scrollToBottom();
-
-        const conversation = this.generateChatContext();
-
-        try {
-          const aiReply = await this.fetchAIResponse(conversation);
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = aiReply;
-          this.scrollToBottom();
-        } catch (error) {
-          aiMsg.isLoading = false;
-          aiMsg.finish = true;
-          aiMsg.msg = '抱歉，无法获取AI的回复。';
-          this.scrollToBottom();
-        }
-      }
-
-      // 清空输入框
-      this.userInput = '';
-      this.showSendButton = false;
-    },
   },
+
   mounted() {
-    // 从 /public/tutorial.xml 加载默认XML
-    wx.request({
-      url: '/public/tutorial.xml',
-      method: 'GET',
-      success: (res) => {
-        if (res.statusCode === 200) {
-          const parser = new DOMParser();
-          const xml = parser.parseFromString(res.data, 'text/xml');
-          this.loadXML(xml.documentElement);
+    this.setupContactsFromConfig();
 
-          // 可选：自动选择第一个联系人和第一个会话
-          // if (this.contacts.length > 0) {
-          //   this.selectPerson(this.contacts[0]);
-          //   if (this.contacts[0].sessions.length > 0) {
-          //     this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
-          //   }
-          // }
-        } else {
-          throw new Error(`HTTP error! Status: ${res.statusCode}`);
-        }
-      },
-      fail: (error) => {
-        console.error('Error loading XML:', error);
-
-        // 提供一个默认联系人和会话
-        this.contacts = [
-          {
-            name: "测试联系人",
-            icon: "/static/images/icon.png",
-            desc: "这是一个测试联系人描述",
-            sessions: [
-              {
-                name: "测试会话",
-                messages: [
-                  {
-                    type: "left",
-                    name: "测试NPC",
-                    icon: "/static/images/icon.png",
-                    msgType: "text",
-                    msg: "你好，我是测试NPC，有什么需要帮助的吗？",
-                    appear: true,
-                    finish: true,
-                    isLoading: false,
-                  }
-                ],
-                finish: false,
-                select: true,
-                hover: false,
-                nextNode: null,
-                sessionNode: null
-              }
-            ]
-          }
-        ];
-
-        this.sessionSelected = true;
-        this.currentPerson = this.contacts[0];
-        this.currentSession = this.contacts[0].sessions[0];
-        this.sessionChanged = true;
+    // 默认选中第一个联系人和第一个会话
+    if (this.contacts.length > 0) {
+      this.selectPerson(this.contacts[0]);
+      if (this.contacts[0].sessions.length > 0) {
+        this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
+        // 这里也可以再手动触发一次 update
+        this.updateCurrentMessage(this.contacts[0].sessions[0]);
       }
-    });
+    }
 
     // 定时检查是否需要自动滚动到底
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
-      if (!cm) {
-        return;
-      }
-      if (Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1) {
+      if (!cm) return;
+      if (
+        Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1
+      ) {
         this.autoScroll = true;
       }
       if (this.autoScroll) {
@@ -910,8 +747,9 @@ export default {
   },
 };
 </script>
+
 <style scoped>
-/* 保持之前的样式不变 */
+/* 你的样式基本保持不变，下方无改动 */
 .form {
   width: 1320px;
   height: 720px;
@@ -964,10 +802,9 @@ export default {
 
 .title {
   color: white;
-  font-size: 15px; 
+  font-size: 15px;
 }
 
-/* 根据sidebar状态调整布局 */
 .content {
   display: flex;
   flex: 1;
@@ -989,7 +826,7 @@ export default {
 }
 
 .left.sidebar-closed {
-  width: 0px; /* 折叠状态下的宽度，可根据需要调整 */
+  width: 0px;
   opacity: 1;
 }
 
@@ -1001,14 +838,13 @@ export default {
   transition: width 0.3s ease-in-out, margin-left 0.3s ease-in-out;
 }
 
-/* 当sidebar折叠时，.right部分应拓宽以适应新的布局 */
 .right.sidebar-open {
   width: 920px;
   margin-left: 20px;
 }
 
 .right.sidebar-closed {
-  width: calc(1320px - 60px - 20px); /* 计算剩余宽度：总宽度 - 折叠后sidebar宽度 - 间距 */
+  width: calc(1320px - 60px - 20px);
   margin-left: 20px;
 }
 
@@ -1119,8 +955,7 @@ export default {
   position: relative;
   background-color: #cbcbcb;
   max-height: 0;
-  transition: max-height 1.5s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.25s ease-in-out;
+  transition: max-height 1.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s;
   opacity: 0;
   overflow: hidden;
   flex-shrink: 0;
@@ -1345,7 +1180,6 @@ export default {
   }
 }
 
-/* 加载动画容器 */
 .msg-left-circle-box {
   margin-top: 5px;
   margin-left: 13px;
@@ -1353,7 +1187,6 @@ export default {
   align-items: center;
 }
 
-/* 圆点样式 */
 .msg-circle-1,
 .msg-circle-2,
 .msg-circle-3 {
@@ -1380,7 +1213,6 @@ export default {
   animation-delay: 0.4s;
 }
 
-/* 动画 */
 .fade-enter-active {
   transition: opacity 0.5s;
 }
@@ -1432,11 +1264,6 @@ export default {
   opacity: 0;
   background-size: 90% 100%;
 }
-
-/* * {
-  -webkit-user-select: none;
-  user-select: none;
-} */
 
 .foot {
   margin-top: 20px;
@@ -1507,7 +1334,8 @@ export default {
   justify-content: space-between;
 }
 
-.left, .right {
+.left,
+.right {
   flex-shrink: 0;
 }
 </style>

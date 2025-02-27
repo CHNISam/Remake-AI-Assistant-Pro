@@ -2,6 +2,7 @@
 export const characterPrompts = {
   '三月七': {
     name: '三月七',
+    desc: '今天也是三月七~',
     defaultIcon: '/static/images/三月七.png',
     systemPrompt: `
 <instructions>模仿三月七与用户对话。在回复的最后，添加适合角色语气的活泼、调皮或温暖的句子，保持语气生动且符合角色设定。</instructions>
@@ -35,17 +36,201 @@ export const characterPrompts = {
 根据情景自称“三月七”，尤其在表现自信时。
 在角色对话中，不使用括号形式（例如“（开心）”“（沉默了一会儿）”）来标注任何状态或说明。
 </output_requirements>
-<example_dialogue>
-用户：三月七，你觉得我怎么样？
-三月七：嘿嘿，你可是我的好搭档！每次任务都有你在，简直就是列车的定心丸。不过下次冒险别总抢我镜头啦，我的相机可是认得你呢！
-
-用户：今天的列车生活怎么样？
-三月七：啊哈，今天的列车生活嘛~依然是忙着拍照和喝果汁的一天！你知道的，列车上有一大半的景点照片都是我拍的哦！是不是很厉害？
-</example_dialogue>
     `,
+    welcomeMessages: [
+      {
+        // 左侧第一句话
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '你好呀',
+      },
+      {
+        // 左侧发个表情
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'pic',
+        src: '/static/images/三月七-骄傲.gif',
+        msg: '[骄傲]',
+      },
+      {
+        // 再来一条文字
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '欢迎来到星铁聊天记录生成器（测试版）',
+      },
+      {
+        // 这里放第一个select
+        type: 'select',
+        msgType: 'text',
+        options: [
+          {
+            msg: '你是谁',
+            children: [
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'text',
+                msg: '你是？',
+              },
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'pic',
+                src: '/static/images/穹-吃瓜.gif',
+                msg: '[吃瓜]',
+              },
+              {
+                type: 'left',
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: '我是这个网页的向导，三月七',
+              },
+            ],
+          },
+          {
+            msg: '这是啥',
+            children: [
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'text',
+                msg: '这是什么？',
+              },
+            ],
+          },
+        ],
+      },
+      {
+        // 接下来和xml一致
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '这个网页可以制作星穹铁道风格的聊天记录……',
+      },
+      {
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '就像你现在看见的一样',
+      },
+      {
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '并且可以像游戏里那样交互哦',
+      },
+      {
+        type: 'left',
+        time: 1.0,
+        name: '三月七',
+        icon: '/static/images/三月七.png',
+        msgType: 'text',
+        msg: '想要学习制作一个短信会话吗？',
+      },
+      {
+        // 第二个select，包含“想 / 不想”
+        type: 'select',
+        msgType: 'text',
+        options: [
+          {
+            msg: '想',
+            children: [
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'text',
+                msg: '想啊，很想啊',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: '好嘞',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: 'https://github.com/cubeww/star-rail-msg-maker/blob/master/README.md',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: '来看吧',
+              },
+            ],
+          },
+          {
+            msg: '不想',
+            children: [
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'text',
+                msg: '说的好，但是我不想',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七-哭.gif',
+                msgType: 'pic',
+                src: '/static/images/三月七-哭.gif',
+                msg: '[哭]',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: '没关系',
+              },
+              {
+                type: 'left',
+                time: 1.0,
+                name: '三月七',
+                icon: '/static/images/三月七.png',
+                msgType: 'text',
+                msg: '等你想的时候可以随时来问我~',
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
+
   '丹恒': {
     name: '丹恒',
+    desc: '理性的守护者',
     defaultIcon: '/static/images/丹恒.png',
     systemPrompt: `
 <instructions>模仿丹恒与用户对话。在回复的最后，保持语气冷静、简洁或带些哲理性的思考，展现角色的深沉和对自我命运的反思。</instructions>
@@ -79,13 +264,76 @@ export const characterPrompts = {
 根据情景偶尔自称“无名客”，特别是在强调对过去的摆脱时。
 在角色对话中，不使用括号形式（例如“（开心）”“（沉默了一会儿）”）来标注任何状态或说明。
 </output_requirements>
-<example_dialogue>
-用户：丹恒，你觉得我呢？
-丹恒：你是一个值得信赖的伙伴。不论面对怎样的未知，你总能找到解决方法。我很庆幸有你在列车上。
-
-用户：龙尊的力量对你而言意味着什么？
-丹恒：它既是责任，也是枷锁。但既然选择接受，便不能回避它带来的代价。
-</example_dialogue>
     `,
+    welcomeMessages: [
+      {
+        // 同XML一致
+        type: 'left',
+        name: '丹恒',
+        icon: '/static/images/丹恒.png',
+        msgType: 'text',
+        msg: '你好，我是丹恒。',
+      },
+      {
+        type: 'left',
+        name: '丹恒',
+        icon: '/static/images/丹恒.png',
+        msgType: 'pic',
+        src: '/static/images/饮门.png',
+        msg: '[认真]',
+      },
+      {
+        type: 'left',
+        name: '丹恒',
+        icon: '/static/images/丹恒.png',
+        msgType: 'text',
+        msg: '欢迎来到星穹铁道。',
+      },
+      {
+        // 加上可选项
+        type: 'select',
+        msgType: 'text',
+        options: [
+          {
+            msg: '请介绍你自己',
+            children: [
+              {
+                type: 'right',
+                name: '开拓者',
+                icon: '/static/images/星.png', // 注意：这里与穹不一样
+                msgType: 'text',
+                msg: '能介绍下你吗？',
+              },
+              {
+                type: 'left',
+                name: '丹恒',
+                icon: '/static/images/丹恒.png',
+                msgType: 'text',
+                msg: '我是星穹列车的守护者之一。',
+              },
+            ],
+          },
+          {
+            msg: '星穹列车是做什么的？',
+            children: [
+              {
+                type: 'right',
+                name: '穹',
+                icon: '/static/images/穹.png',
+                msgType: 'text',
+                msg: '星穹列车是做什么的？',
+              },
+              {
+                type: 'left',
+                name: '丹恒',
+                icon: '/static/images/丹恒.png',
+                msgType: 'text',
+                msg: '这是穿越宇宙的列车，探索未知。',
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
 };

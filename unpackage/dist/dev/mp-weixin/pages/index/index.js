@@ -13,245 +13,61 @@ const _sfc_main = {
       // 大模型API相关
       model: "glm-4-flash",
       // 模型名称（固定值）
-      messages: [],
-      // 联系人数据
+      apiToken: "76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ",
+      // 你的token
+      // 天气API相关
+      amapApiKey: "79452bccf16e1cd79877f79614b3bd23",
+      // 联系人数据（直接从 promptConfig 中构建）
       contacts: [],
-      // 表示是否已经选中过一个会话，用于改变聊天窗底色
       sessionSelected: false,
-      // 当前联系人对象，用于显示聊天窗顶部的昵称、描述
       currentPerson: null,
-      // 当前消息会话对象，用于聊天窗消息遍历
       currentSession: null,
-      // 表示会话是否切换完成，用于会话切换渐变动画
       sessionChanged: false,
-      // 表示当前会话最后一条信息，用于option类型的消息绘制
       currentMessage: null,
-      // 默认只显示最近的 50 条消息
+      // 指向会话最后一条select消息
       maxVisibleMessages: 50,
-      // 表示选项是否被选中（确认）
       isSelectClose: false,
-      // 滚轮滑动相关
+      // 用于点击选项后把选项折叠
       autoScroll: true,
-      // 表示是否自动下滚
       lastScrollTop: 0,
-      // 表示上一次的滚动距离
-      // 是否展开sidebar
       isSidebarOpen: true
     };
   },
   computed: {
+    // 是否是一个 select 消息
     isSelectMessage() {
       return this.currentMessage && this.currentMessage.type === "select";
     },
+    // 只显示最近 maxVisibleMessages 条
     visibleMessages() {
       return this.currentSession && this.currentSession.messages ? this.currentSession.messages.slice(-this.maxVisibleMessages) : [];
     }
   },
   methods: {
+    // 从 promptConfig 里生成联系人
+    setupContactsFromConfig() {
+      const allCharacters = Object.values(config_promptConfig.characterPrompts);
+      this.contacts = allCharacters.map((char) => {
+        return {
+          name: char.name,
+          icon: char.defaultIcon,
+          desc: char.desc || "角色简介",
+          select: false,
+          hover: false,
+          sessions: [
+            {
+              name: `与${char.name}的会话`,
+              messages: [],
+              select: false,
+              hover: false,
+              finish: false
+            }
+          ]
+        };
+      });
+    },
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
-    },
-    // AI回复函数
-    async fetchAIResponse(conversation) {
-      try {
-        const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ"
-            // 请替换为你的实际 API 密钥
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              {
-                role: "system",
-                content: config_promptConfig.systemPrompt.trim()
-              },
-              ...conversation.map((msg) => ({
-                role: msg.role,
-                content: msg.content
-              }))
-            ],
-            stream: false
-          })
-        });
-        if (!response.ok) {
-          throw new Error(`API请求失败，状态码：${response.status}`);
-        }
-        const data = await response.json();
-        return data.choices[0].message.content;
-      } catch (error) {
-        console.error("AI回复错误:", error);
-        return "抱歉，无法获取AI的回复。";
-      }
-    },
-    // 从XML文档加载聊天记录
-    loadXML(xml) {
-      this.contacts = [];
-      const persons = xml.getElementsByTagName("person");
-      for (let person of persons) {
-        const newPerson = {
-          name: person.getAttribute("name"),
-          icon: person.getAttribute("icon"),
-          desc: person.getAttribute("desc"),
-          sessions: [],
-          select: false,
-          hover: false
-        };
-        this.contacts.push(newPerson);
-        const sessions = person.getElementsByTagName("session");
-        for (let session of sessions) {
-          newPerson.sessions.push({
-            name: session.firstElementChild.textContent,
-            messages: [],
-            sessionNode: session,
-            nextNode: session.firstElementChild,
-            select: false,
-            hover: false,
-            finish: false
-          });
-        }
-      }
-    },
-    addMessageToSession(session, newMessage) {
-      session.messages.push(newMessage);
-      const MAX_MESSAGES = 100;
-      if (session.messages.length > MAX_MESSAGES) {
-        session.messages.splice(0, session.messages.length - MAX_MESSAGES);
-      }
-    },
-    async sendNextNode(session) {
-      if (!session.nextNode)
-        return;
-      switch (session.nextNode.tagName) {
-        case "left":
-        case "right": {
-          const msgObj = common_vendor.reactive({
-            type: session.nextNode.tagName,
-            name: session.nextNode.getAttribute("name"),
-            icon: session.nextNode.getAttribute("icon"),
-            msgType: session.nextNode.getAttribute("type"),
-            msg: session.nextNode.textContent,
-            src: session.nextNode.getAttribute("src"),
-            appear: false,
-            finish: false,
-            isLoading: false
-          });
-          this.currentMessage = msgObj;
-          const finishTime = session.nextNode.tagName === "left" ? parseInt(session.nextNode.getAttribute("time") || "2") * 1e3 : 250;
-          this.addMessageToSession(session, msgObj);
-          setTimeout(() => {
-            msgObj.appear = true;
-            this.$forceUpdate();
-          }, 100);
-          setTimeout(() => {
-            msgObj.finish = true;
-          }, finishTime + 100);
-          let next = null;
-          if (session.nextNode.nextElementSibling != null) {
-            next = session.nextNode.nextElementSibling;
-          } else {
-            next = session.nextNode;
-            let flag = false;
-            while (next.parentNode.tagName !== "session") {
-              if (next.parentNode.tagName === "option") {
-                next = next.parentNode.parentNode;
-              }
-              if (next.nextElementSibling != null) {
-                next = next.nextElementSibling;
-                flag = true;
-                break;
-              }
-            }
-            if (!flag) {
-              next = null;
-            }
-          }
-          if (next != null) {
-            session.nextNode = next;
-            setTimeout(() => {
-              this.sendNextNode(session);
-            }, finishTime + 600);
-          } else {
-            setTimeout(() => {
-              session.finish = true;
-            }, finishTime + 600);
-          }
-          break;
-        }
-        case "select": {
-          const options = [];
-          for (let option of session.nextNode.children) {
-            options.push({
-              msg: option.getAttribute("msg"),
-              nextNode: option.firstElementChild,
-              click: false,
-              hover: false
-            });
-          }
-          const msgObj = common_vendor.reactive({
-            type: "select",
-            msgType: session.nextNode.getAttribute("type"),
-            options
-          });
-          this.addMessageToSession(session, msgObj);
-          this.currentMessage = msgObj;
-          this.isSelectClose = false;
-          break;
-        }
-        default:
-          console.warn(`Unhandled tag: ${session.nextNode.tagName}`);
-      }
-    },
-    async clickOption(option) {
-      if (this.isSelectClose) {
-        return;
-      }
-      option.click = true;
-      this.isSelectClose = true;
-      setTimeout(async () => {
-        this.currentSession.nextNode = option.nextNode;
-        await this.sendNextNode(this.currentSession);
-      }, 250);
-    },
-    selectPerson(person) {
-      if (!person.select) {
-        for (let p of this.contacts) {
-          p.select = false;
-        }
-        person.select = true;
-      } else {
-        person.select = false;
-      }
-    },
-    selectSession(person, session) {
-      if (session === this.currentSession) {
-        return;
-      }
-      for (let p of this.contacts) {
-        for (let s of p.sessions) {
-          s.select = false;
-        }
-      }
-      if (this.currentSession != null) {
-        for (let m of this.currentSession.messages) {
-          if (m.finish === false) {
-            m.finish = true;
-          }
-        }
-      }
-      session.select = true;
-      this.sessionSelected = true;
-      this.sessionChanged = false;
-      setTimeout(() => {
-        this.sessionChanged = true;
-      }, 100);
-      this.currentPerson = person;
-      this.currentSession = session;
-      setTimeout(() => {
-        this.sendNextNode(this.currentSession);
-      }, 250);
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -273,21 +89,93 @@ const _sfc_main = {
       }
       this.lastScrollTop = st;
     },
-    generateChatContext() {
-      if (!this.currentSession || !this.currentSession.messages)
-        return [];
-      return this.currentSession.messages.map((msg) => {
-        if (msg.type === "left") {
-          return { role: "assistant", content: msg.msg, name: msg.name };
-        } else {
-          return { role: "user", content: msg.msg, name: msg.name };
-        }
-      });
-    },
     toggleSendButton() {
       this.showSendButton = this.userInput.trim() !== "";
     },
+    // 切换联系人
+    selectPerson(person) {
+      if (!person.select) {
+        for (let p of this.contacts) {
+          p.select = false;
+        }
+        person.select = true;
+      } else {
+        person.select = false;
+      }
+    },
+    // 切换会话
+    selectSession(person, session) {
+      if (session === this.currentSession) {
+        return;
+      }
+      for (let p of this.contacts) {
+        for (let s of p.sessions) {
+          s.select = false;
+        }
+      }
+      session.select = true;
+      this.sessionSelected = true;
+      this.sessionChanged = false;
+      setTimeout(() => {
+        this.sessionChanged = true;
+      }, 100);
+      this.currentPerson = person;
+      this.currentSession = session;
+      if (!session.messages || session.messages.length === 0) {
+        this.initSessionWithWelcome();
+      }
+      this.updateCurrentMessage(session);
+      this.scrollToBottom();
+    },
+    // [CHANGED CODE HERE] 改成读取 characterPrompts 的 welcomeMessages
+    initSessionWithWelcome() {
+      if (!this.currentPerson || !this.currentSession)
+        return;
+      const config = config_promptConfig.characterPrompts[this.currentPerson.name];
+      const msgs = config && config.welcomeMessages ? config.welcomeMessages : [];
+      const welcome = msgs.map((m) => ({ ...m, appear: true, finish: true }));
+      this.currentSession.messages = welcome;
+    },
+    // [CHANGED CODE HERE] 每次插入消息后，更新一下 currentMessage
+    addMessageToSession(session, newMessage) {
+      session.messages.push(newMessage);
+      const MAX_MESSAGES = 100;
+      if (session.messages.length > MAX_MESSAGES) {
+        session.messages.splice(0, session.messages.length - MAX_MESSAGES);
+      }
+      this.updateCurrentMessage(session);
+    },
+    // [CHANGED CODE HERE] 用来判断会话最后一条是否是 select
+    updateCurrentMessage(session) {
+      if (!session || !session.messages || session.messages.length === 0) {
+        this.currentMessage = null;
+        return;
+      }
+      const last = session.messages[session.messages.length - 1];
+      if (last.type === "select") {
+        this.currentMessage = last;
+        this.isSelectClose = false;
+      } else {
+        this.currentMessage = null;
+      }
+    },
+    // 点击选项后，若有 children 就追加
+    async clickOption(option) {
+      if (this.isSelectClose) {
+        return;
+      }
+      option.click = true;
+      this.isSelectClose = true;
+      if (option.children && Array.isArray(option.children)) {
+        option.children.forEach((childMsg) => {
+          const newMsg = { ...childMsg, appear: true, finish: true };
+          this.addMessageToSession(this.currentSession, newMsg);
+        });
+      }
+    },
+    // ------------------- 发送消息 -------------------
     async sendMessage() {
+      var _a, _b;
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput)
         return;
@@ -302,89 +190,281 @@ const _sfc_main = {
       };
       this.addMessageToSession(this.currentSession, userMsg);
       this.scrollToBottom();
-      const aiMsg = common_vendor.reactive({
-        type: "left",
-        name: "三月七",
-        msgType: "text",
-        msg: "",
-        icon: "/static/images/三月七.png",
-        appear: true,
-        isLoading: true,
-        // 加载中状态
-        finish: false
-      });
-      this.addMessageToSession(this.currentSession, aiMsg);
-      this.scrollToBottom();
-      const conversation = this.generateChatContext();
-      try {
-        const aiReply = await this.fetchAIResponse(conversation);
-        aiMsg.isLoading = false;
-        aiMsg.finish = true;
-        aiMsg.msg = aiReply;
+      const intent = await this.checkMessageIntentWithLLM(trimmedInput);
+      console.log("意图识别结果:", intent);
+      if (intent === "weather") {
+        const matchedCities = this.getCityCodes(trimmedInput);
+        if (matchedCities.length === 0) {
+          const aiMsg = common_vendor.reactive({
+            type: "left",
+            name: "天气查询",
+            msgType: "text",
+            msg: "无法识别你想查的城市，可以再说具体点吗？",
+            icon: ((_a = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a.defaultIcon) || "/static/images/default.png",
+            appear: true,
+            isLoading: false,
+            finish: true
+          });
+          this.addMessageToSession(this.currentSession, aiMsg);
+          this.scrollToBottom();
+        } else {
+          matchedCities.forEach(async (city) => {
+            var _a2;
+            const loadingMsg = common_vendor.reactive({
+              type: "left",
+              name: "天气查询",
+              msgType: "text",
+              msg: `正在查询${city.name}天气...`,
+              icon: ((_a2 = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _a2.defaultIcon) || "/static/images/weather.png",
+              appear: true,
+              isLoading: true,
+              finish: false
+            });
+            this.addMessageToSession(this.currentSession, loadingMsg);
+            this.scrollToBottom();
+            try {
+              const weatherInfo = await this.fetchWeather(city.code);
+              loadingMsg.isLoading = false;
+              loadingMsg.finish = true;
+              if (weatherInfo) {
+                loadingMsg.msg = `
+城市: ${weatherInfo.city}
+天气: ${weatherInfo.weather}
+温度: ${weatherInfo.temperature}℃
+风向: ${weatherInfo.winddirection}
+风力: ${weatherInfo.windpower}级
+湿度: ${weatherInfo.humidity}%
+                `.trim();
+              } else {
+                loadingMsg.msg = `抱歉，无法获取到${city.name}的天气信息。`;
+              }
+              this.scrollToBottom();
+            } catch (e) {
+              console.error(`天气查询接口出错 (${city.name})`, e);
+              loadingMsg.isLoading = false;
+              loadingMsg.finish = true;
+              loadingMsg.msg = `天气服务暂不可用 (${city.name})。`;
+              this.scrollToBottom();
+            }
+          });
+        }
+      } else {
+        const aiMsg = common_vendor.reactive({
+          type: "left",
+          name: this.currentPerson ? this.currentPerson.name : "系统",
+          msgType: "text",
+          msg: "正在获取AI回复...",
+          icon: ((_b = config_promptConfig.characterPrompts[this.currentPerson.name]) == null ? void 0 : _b.defaultIcon) || "/static/images/default.png",
+          appear: true,
+          isLoading: true,
+          finish: false
+        });
+        this.addMessageToSession(this.currentSession, aiMsg);
         this.scrollToBottom();
-      } catch (error) {
-        aiMsg.isLoading = false;
-        aiMsg.finish = true;
-        aiMsg.msg = "抱歉，无法获取AI的回复。";
-        this.scrollToBottom();
+        const conversation = this.generateChatContext();
+        try {
+          const aiReply = await this.fetchAIResponse(conversation);
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = aiReply;
+          this.scrollToBottom();
+        } catch (error) {
+          aiMsg.isLoading = false;
+          aiMsg.finish = true;
+          aiMsg.msg = "抱歉，无法获取AI的回复。";
+          this.scrollToBottom();
+        }
       }
       this.userInput = "";
       this.showSendButton = false;
+    },
+    // 调用大模型做“意图识别”
+    async checkMessageIntentWithLLM(userMsg) {
+      return new Promise((resolve) => {
+        const systemPrompt = `
+你是一个分类器，用户会发来一句话。你需要判断这句话是否是对“天气”的询问。
+如果用户是在查询某地的天气，请只回答 "weather"。
+如果不是在查询天气，包括只是感慨天气不错，请只回答 "other"。
+只输出这一个词，不要带多余内容。
+        `.trim();
+        common_vendor.wx$1.request({
+          url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+          method: "POST",
+          header: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiToken}`
+          },
+          data: {
+            model: this.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMsg }
+            ],
+            stream: false
+          },
+          success: (res) => {
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              const content = res.data.choices[0].message.content.trim().toLowerCase();
+              if (content === "weather") {
+                resolve("weather");
+              } else {
+                resolve("other");
+              }
+            } else {
+              console.error("意图识别API请求失败，状态码：", res.statusCode);
+              resolve("other");
+            }
+          },
+          fail: (error) => {
+            console.error("意图识别时出现错误:", error);
+            resolve("other");
+          }
+        });
+      });
+    },
+    // 让大模型生成回复
+    async fetchAIResponse(conversation) {
+      return new Promise((resolve, reject) => {
+        common_vendor.wx$1.request({
+          url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+          method: "POST",
+          header: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiToken}`
+          },
+          data: {
+            model: this.model,
+            messages: [
+              {
+                role: "system",
+                content: config_promptConfig.characterPrompts[this.currentPerson.name] ? config_promptConfig.characterPrompts[this.currentPerson.name].systemPrompt : "这是一个默认的 systemPrompt，用于兜底处理。"
+              },
+              ...conversation.map((msg) => ({
+                role: msg.role,
+                content: msg.content
+              }))
+            ],
+            stream: false
+          },
+          success: (res) => {
+            if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
+              resolve(res.data.choices[0].message.content.trim());
+            } else {
+              reject(new Error(`API请求失败，状态码：${res.statusCode}`));
+            }
+          },
+          fail: (error) => {
+            reject(new Error(`请求失败: ${error}`));
+          }
+        });
+      }).catch((error) => {
+        console.error("AI回复错误:", error);
+        return "抱歉，无法获取AI的回复。";
+      });
+    },
+    // 调用高德API查询天气
+    async fetchWeather(cityCode) {
+      return new Promise((resolve) => {
+        const url = "https://restapi.amap.com/v3/weather/weatherInfo";
+        const params = {
+          key: this.amapApiKey,
+          city: cityCode,
+          extensions: "base",
+          output: "json"
+        };
+        common_vendor.wx$1.request({
+          url,
+          method: "GET",
+          data: params,
+          success: (res) => {
+            const data = res.data;
+            if (data.status === "1" && data.lives && data.lives.length > 0) {
+              resolve(data.lives[0]);
+            } else {
+              console.error("天气查询失败，错误信息:", data.info);
+              resolve(null);
+            }
+          },
+          fail: (error) => {
+            console.error("天气查询失败:", error);
+            resolve(null);
+          }
+        });
+      });
+    },
+    // 更多城市名匹配
+    getCityCodes(userInput) {
+      const cityMap = {
+        "北京": "110000",
+        "上海": "310000",
+        "广州": "440100",
+        "深圳": "440300",
+        "杭州": "330100",
+        "成都": "510100",
+        "重庆": "500000",
+        "天津": "120000",
+        "武汉": "420100",
+        "西安": "610100",
+        "南京": "320100",
+        "苏州": "320500",
+        "长沙": "430100",
+        "青岛": "370200",
+        "大连": "210200",
+        "厦门": "350200",
+        "广东": "440000",
+        "江苏": "320000",
+        "四川": "510000",
+        "河北": "130000",
+        "河南": "410000",
+        "山东": "370000",
+        "辽宁": "210000",
+        "浙江": "330000",
+        "湖北": "420000",
+        "湖南": "430000",
+        "福建": "350000",
+        "安徽": "340000",
+        "江西": "360000",
+        "吉林": "220000",
+        "佛山": "440600",
+        "东莞": "441900"
+      };
+      const matchedCityCodes = [];
+      for (const cityName in cityMap) {
+        if (userInput.includes(cityName)) {
+          matchedCityCodes.push({
+            name: cityName,
+            code: cityMap[cityName]
+          });
+        }
+      }
+      return matchedCityCodes;
+    },
+    // 将当前会话消息转换为模型所需的上下文
+    generateChatContext() {
+      if (!this.currentSession || !this.currentSession.messages)
+        return [];
+      return this.currentSession.messages.map((msg) => {
+        if (msg.type === "left") {
+          return { role: "assistant", content: msg.msg };
+        } else {
+          return { role: "user", content: msg.msg };
+        }
+      });
     }
   },
   mounted() {
-    fetch("/public/tutorial.xml").then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+    this.setupContactsFromConfig();
+    if (this.contacts.length > 0) {
+      this.selectPerson(this.contacts[0]);
+      if (this.contacts[0].sessions.length > 0) {
+        this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
+        this.updateCurrentMessage(this.contacts[0].sessions[0]);
       }
-      return response.text();
-    }).then((str) => {
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(str, "text/xml");
-      this.loadXML(xml.documentElement);
-    }).catch((error) => {
-      console.error("Error loading XML:", error);
-      this.contacts = [
-        {
-          name: "测试联系人",
-          icon: "/static/images/icon.png",
-          desc: "这是一个测试联系人描述",
-          select: true,
-          hover: false,
-          sessions: [
-            {
-              name: "测试会话",
-              messages: [
-                {
-                  type: "left",
-                  name: "测试NPC",
-                  icon: "/static/images/icon.png",
-                  msgType: "text",
-                  msg: "你好，我是测试NPC，有什么需要帮助的吗？",
-                  appear: true,
-                  finish: true,
-                  isLoading: false
-                }
-              ],
-              finish: false,
-              select: true,
-              hover: false,
-              nextNode: null,
-              sessionNode: null
-            }
-          ]
-        }
-      ];
-      this.sessionSelected = true;
-      this.currentPerson = this.contacts[0];
-      this.currentSession = this.contacts[0].sessions[0];
-      this.sessionChanged = true;
-    });
+    }
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
-      if (!cm) {
+      if (!cm)
         return;
-      }
       if (Math.abs(cm.scrollHeight - cm.scrollTop - cm.clientHeight) < 1) {
         this.autoScroll = true;
       }

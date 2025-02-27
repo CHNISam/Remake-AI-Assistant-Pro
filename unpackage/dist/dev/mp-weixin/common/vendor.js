@@ -7589,3 +7589,4 @@ exports.p = p;
 exports.reactive = reactive;
 exports.resolveComponent = resolveComponent;
 exports.t = t;
+exports.wx$1 = wx$1;

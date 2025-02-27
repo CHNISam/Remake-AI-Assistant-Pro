@@ -18,7 +18,7 @@ export const sendMessageToAI = async (messages) => {
         'Authorization': `Bearer ${API_KEY}`,
       },
       data: {
-        model: "glm-4-flash",
+        model: "glm-zero-preview",
         messages: messages,
         stream: false,
       },
