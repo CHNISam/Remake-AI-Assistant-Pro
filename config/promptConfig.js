@@ -112,7 +112,7 @@ export const characterPrompts = {
         name: '丹恒',
         icon: '/static/images/丹恒.png',
         msgType: 'text',
-        msg: '欢迎来到星穹铁道。',
+        msg: '欢迎来到星穹列车。',
       },
       {
         // 加上可选项
@@ -125,7 +125,7 @@ export const characterPrompts = {
               {
                 type: 'right',
                 name: '开拓者',
-                icon: '/static/images/星.png', // 注意：这里与穹不一样
+                icon: '/static/images/穹.png', // 注意：这里与穹不一样
                 msgType: 'text',
                 msg: '能介绍下你吗？',
               },

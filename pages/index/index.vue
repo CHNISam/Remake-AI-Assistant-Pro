@@ -8,6 +8,8 @@
         <span class="title" v-if="isSidebarOpen">短信</span>
       </div>
 
+      <!-- 原先的顶部用户头像区域已移除 -->
+
       <div
         class="content"
         :class="{ 'sidebar-open': isSidebarOpen, 'sidebar-closed': !isSidebarOpen }"
@@ -144,14 +146,16 @@
                           <img v-else class="msg-pic-content" :src="m.src" alt="" />
                         </div>
                       </transition>
-
-                      <!-- 聊天内容-头像 -->
+                      <!-- 自己的头像：添加右键和长按事件用于更换头像 -->
                       <transition name="msg-icon-fade">
                         <img
                           v-if="m.appear"
                           :src="m.icon"
                           alt=""
                           class="msg-right-icon"
+                          @contextmenu.prevent="openAvatarModal"
+                          @touchstart="startLongPress"
+                          @touchend="cancelLongPress"
                         />
                       </transition>
                     </div>
@@ -212,53 +216,120 @@
           </div>
         </div>
       </div>
+
+      <!-- 头像选择 Modal -->
+      <transition name="modal-fade">
+        <div class="modal-overlay" v-if="showAvatarModal" @click.self="closeAvatarModal">
+          <div class="modal-content">
+            <h3>选择头像</h3>
+            <div class="avatar-list">
+              <img
+                v-for="(avatar, index) in availableAvatars"
+                :key="index"
+                :src="avatar"
+                alt="avatar option"
+                class="avatar-option"
+                @click="selectAvatar(avatar)"
+              />
+            </div>
+            <button class="modal-close" @click="closeAvatarModal">关闭</button>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
 
 <script>
 import { reactive } from 'vue';
-import { characterPrompts } from '/config/promptConfig.js'; // 引入你的角色配置
+import { characterPrompts } from '/config/promptConfig.js';
 
 export default {
   name: 'MessageApp',
   data() {
     return {
-      userInput: '',       // 用户输入内容
-      showSendButton: false, // 控制发送按钮的显示
+      userInput: '',
+      showSendButton: false,
 
-      // 大模型API相关
-      model: 'glm-zero-preview', // 模型名称
-      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ', // 请使用你自己的Token
+      model: 'glm-zero-preview',
+      apiToken: '76915445ad0955e6442a0aa6d24ad251.27G8TUC8AM9euXxQ',
 
-      // 联系人数据
       contacts: [],
       sessionSelected: false,
       currentPerson: null,
       currentSession: null,
       sessionChanged: false,
-      currentMessage: null, // 指向会话最后一条 select 消息
+      currentMessage: null,
       maxVisibleMessages: 50,
-      isSelectClose: false, // 用于点击选项后把选项折叠
+      isSelectClose: false,
       autoScroll: true,
       lastScrollTop: 0,
       isSidebarOpen: true,
-      errorMessage: '' // 错误信息
+      errorMessage: '',
+
+      // 用户头像数据
+      currentAvatar: '/static/images/穹.png',
+      availableAvatars: [
+        '/static/images/穹.png',
+        '/static/images/星.png'
+        // 可根据需要添加更多头像
+      ],
+      showAvatarModal: false,
+
+      // 用于移动端长按处理
+      longPressTimer: null
     };
   },
   computed: {
-    // 是否是一个 select 消息
     isSelectMessage() {
       return this.currentMessage && this.currentMessage.type === 'select';
     },
-    // 只显示最近 maxVisibleMessages 条
     visibleMessages() {
       return this.currentSession && this.currentSession.messages
         ? this.currentSession.messages.slice(-this.maxVisibleMessages)
         : [];
-    },
+    }
   },
   methods: {
+    // 长按事件处理（移动端）
+    startLongPress() {
+      // 设定长按 800ms 后触发
+      this.longPressTimer = setTimeout(() => {
+        this.openAvatarModal();
+      }, 800);
+    },
+    cancelLongPress() {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    },
+    openAvatarModal() {
+      console.log('Open avatar modal');
+      this.showAvatarModal = true;
+    },
+    closeAvatarModal() {
+      console.log('Close avatar modal');
+      this.showAvatarModal = false;
+    },
+    selectAvatar(avatar) {
+      console.log('Avatar selected:', avatar);
+      this.currentAvatar = avatar;
+      localStorage.setItem('userAvatar', avatar);
+      this.updateUserAvatarInMessages();  // 更新历史消息中的头像
+      this.closeAvatarModal();
+    },
+	updateUserAvatarInMessages() {
+	  this.contacts.forEach(contact => {
+	    contact.sessions.forEach(session => {
+	      session.messages.forEach(msg => {
+	        if (msg.type === 'right' && msg.name === '开拓者') {
+	          msg.icon = this.currentAvatar;
+	        }
+	      });
+	    });
+	  });
+	},
+
+
     // ------------------- 初始化联系人 -------------------
     setupContactsFromConfig() {
       const allCharacters = Object.values(characterPrompts);
@@ -275,28 +346,25 @@ export default {
               messages: [],
               select: false,
               hover: false,
-              finish: false,
+              finish: false
             }
-          ],
+          ]
         };
       });
     },
-
     toggleSidebar() {
       this.isSidebarOpen = !this.isSidebarOpen;
     },
-
     scrollToBottom() {
       this.$nextTick(() => {
         if (this.$refs.chatBoxMiddle) {
           this.$refs.chatBoxMiddle.scrollTo({
             top: this.$refs.chatBoxMiddle.scrollHeight,
-            behavior: 'smooth',
+            behavior: 'smooth'
           });
         }
       });
     },
-
     onChatBoxMiddleScroll() {
       const cm = this.$refs.chatBoxMiddle;
       if (!cm) return;
@@ -306,12 +374,9 @@ export default {
       }
       this.lastScrollTop = st;
     },
-
     toggleSendButton() {
       this.showSendButton = this.userInput.trim() !== '';
     },
-
-    // 切换联系人
     selectPerson(person) {
       if (!person.select) {
         for (let p of this.contacts) {
@@ -322,8 +387,6 @@ export default {
         person.select = false;
       }
     },
-
-    // 切换会话
     selectSession(person, session) {
       if (session === this.currentSession) return;
       for (let p of this.contacts) {
@@ -345,8 +408,6 @@ export default {
       this.updateCurrentMessage(session);
       this.scrollToBottom();
     },
-
-    // 初始化对话（从 promptConfig 里读取 welcomeMessages）
     initSessionWithWelcome() {
       if (!this.currentPerson || !this.currentSession) return;
       const config = characterPrompts[this.currentPerson.name];
@@ -389,7 +450,6 @@ export default {
       };
       this.currentSession.insertNext();
     },
-
     addMessageToSession(session, newMessage) {
       session.messages.push(newMessage);
       const MAX_MESSAGES = 100;
@@ -398,7 +458,6 @@ export default {
       }
       this.updateCurrentMessage(session);
     },
-
     updateCurrentMessage(session) {
       if (!session || !session.messages || session.messages.length === 0) {
         this.currentMessage = null;
@@ -412,8 +471,6 @@ export default {
         this.currentMessage = null;
       }
     },
-
-    // 点击选项
     async clickOption(option) {
       if (this.isSelectClose) return;
       option.click = true;
@@ -449,7 +506,6 @@ export default {
         await this.sendMessage();
       }
     },
-
     continueQueue() {
       if (
         this.currentSession &&
@@ -462,8 +518,6 @@ export default {
         this.currentSession.insertNext();
       }
     },
-
-    // ------------------- 发送消息 -------------------
     async sendMessage() {
       const trimmedInput = this.userInput.trim();
       if (!trimmedInput) return;
@@ -472,10 +526,10 @@ export default {
         name: '开拓者',
         msgType: 'text',
         msg: trimmedInput,
-        icon: '/static/images/穹.png',
+        icon: this.currentAvatar,
         appear: false,
         finish: false,
-        isLoading: true,
+        isLoading: true
       });
       this.addMessageToSession(this.currentSession, userMsg);
       this.scrollToBottom();
@@ -496,7 +550,7 @@ export default {
         icon: characterPrompts[this.currentPerson.name]?.defaultIcon || '/static/images/default.png',
         appear: true,
         isLoading: true,
-        finish: false,
+        finish: false
       });
       this.addMessageToSession(this.currentSession, aiMsg);
       this.scrollToBottom();
@@ -519,13 +573,10 @@ export default {
       this.userInput = '';
       this.showSendButton = false;
     },
-
-    // ------------------- 自动生成下一步用户可选回复 -------------------
     async generateNextUserOptions() {
       if (!this.currentSession) return;
       try {
         const conversation = this.generateChatContext();
-        // 并发请求生成2个建议（满足UI限制且字数严格限制）
         const suggestions = await this.generateMultipleSuggestions(conversation);
         if (!suggestions || suggestions.length === 0) return;
         const selectMsg = this.buildSelectMessage(suggestions);
@@ -536,7 +587,6 @@ export default {
         console.error("生成下一步用户回复失败：", err);
       }
     },
-
     buildSelectMessage(suggestionsArray) {
       return reactive({
         type: 'select',
@@ -552,8 +602,6 @@ export default {
         }))
       });
     },
-
-    // ------------------- 大模型AI回复 -------------------
     async fetchAIResponse(conversation) {
       return new Promise((resolve, reject) => {
         wx.request({
@@ -561,7 +609,7 @@ export default {
           method: 'POST',
           header: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiToken}`,
+            Authorization: `Bearer ${this.apiToken}`
           },
           data: {
             model: this.model,
@@ -577,7 +625,7 @@ export default {
                 content: msg.content
               }))
             ],
-            stream: false,
+            stream: false
           },
           success: res => {
             if (res.statusCode === 200 && res.data.choices && res.data.choices[0]) {
@@ -588,15 +636,13 @@ export default {
           },
           fail: error => {
             reject(new Error(`请求失败: ${error}`));
-          },
+          }
         });
       }).catch(error => {
         console.error('AI回复错误:', error);
         return '抱歉，无法获取AI的回复。';
       });
     },
-
-    // ------------------- 并发生成单个建议 -------------------
     async fetchSingleSuggestion(conversation) {
       return new Promise((resolve, reject) => {
         wx.request({
@@ -604,7 +650,7 @@ export default {
           method: 'POST',
           header: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiToken}`,
+            Authorization: `Bearer ${this.apiToken}`
           },
           data: {
             model: this.model,
@@ -620,7 +666,7 @@ export default {
                 content: msg.content
               }))
             ],
-            stream: false,
+            stream: false
           },
           success: res => {
             console.log("Single suggestion response:", res);
@@ -644,7 +690,6 @@ export default {
                   suggestion = content;
                 }
               }
-              // 截断回复，确保不超过25字
               if (suggestion.length > 25) {
                 suggestion = suggestion.substring(0, 25);
               }
@@ -657,12 +702,10 @@ export default {
           fail: error => {
             console.error("Single suggestion API请求失败:", error);
             reject(new Error(`请求失败: ${error}`));
-          },
+          }
         });
       });
     },
-
-    // ------------------- 并发生成多个建议 -------------------
     async generateMultipleSuggestions(conversation) {
       const suggestionCount = 2;
       const promises = [];
@@ -677,8 +720,6 @@ export default {
         throw e;
       }
     },
-
-    // ------------------- 独立的请求函数 -------------------
     makeRequest(conversation) {
       return new Promise((resolve, reject) => {
         wx.request({
@@ -686,7 +727,7 @@ export default {
           method: 'POST',
           header: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiToken}`,
+            Authorization: `Bearer ${this.apiToken}`
           },
           data: {
             model: this.model,
@@ -698,26 +739,24 @@ export default {
               },
               ...conversation.map(msg => ({
                 role: msg.role,
-                content: msg.content,
+                content: msg.content
               }))
             ],
-            stream: false,
+            stream: false
           },
-          success: (res) => {
+          success: res => {
             if (res.statusCode === 200) {
               resolve(res.data);
             } else {
               reject(new Error(`API请求失败，状态码：${res.statusCode}`));
             }
           },
-          fail: (error) => {
+          fail: error => {
             reject(new Error(`请求失败: ${error}`));
-          },
+          }
         });
       });
     },
-
-    // 将当前会话消息转换为模型所需的上下文
     generateChatContext() {
       if (!this.currentSession || !this.currentSession.messages) return [];
       return this.currentSession.messages.map(msg => {
@@ -727,11 +766,9 @@ export default {
           return { role: 'user', content: msg.msg };
         }
       });
-    },
+    }
   },
-
   mounted() {
-    // 生成联系人
     this.setupContactsFromConfig();
     if (this.contacts.length > 0) {
       this.selectPerson(this.contacts[0]);
@@ -739,6 +776,11 @@ export default {
         this.selectSession(this.contacts[0], this.contacts[0].sessions[0]);
         this.updateCurrentMessage(this.contacts[0].sessions[0]);
       }
+    }
+    // 尝试恢复头像选择
+    const savedAvatar = localStorage.getItem('userAvatar');
+    if (savedAvatar) {
+      this.currentAvatar = savedAvatar;
     }
     setInterval(() => {
       const cm = this.$refs.chatBoxMiddle;
@@ -750,13 +792,14 @@ export default {
         this.scrollToBottom();
       }
     }, 100);
-  },
+  }
 };
 </script>
 
 <style scoped>
-/* 这里是你的样式，原样保留即可 */
+/* position: relative 确保头像区域定位正确 */
 .form {
+  position: relative;
   width: 1320px;
   height: 720px;
   background-color: #1b1e27;
@@ -1139,21 +1182,14 @@ export default {
   height: 50px;
   margin-right: 20px;
   border-radius: 50%;
+  cursor: pointer;
 }
 
 @keyframes blink {
-  0% {
-    opacity: 0;
-  }
-  33% {
-    opacity: 1;
-  }
-  66% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
+  0% { opacity: 0; }
+  33% { opacity: 1; }
+  66% { opacity: 0; }
+  100% { opacity: 0; }
 }
 
 .msg-left-circle-box {
@@ -1175,71 +1211,28 @@ export default {
   animation: blink 1s infinite;
 }
 
-.msg-circle-1 {
-  animation-delay: 0s;
-}
+.msg-circle-1 { animation-delay: 0s; }
+.msg-circle-2 { margin-left: 4px; animation-delay: 0.2s; }
+.msg-circle-3 { margin-left: 4px; animation-delay: 0.4s; }
 
-.msg-circle-2 {
-  margin-left: 4px;
-  animation-delay: 0.2s;
-}
+.fade-enter-active { transition: opacity 0.5s; }
+.fade-leave-active { transition: opacity 0; }
+.fade-enter-from { opacity: 0; }
+.fade-enter-to { opacity: 1; }
 
-.msg-circle-3 {
-  margin-left: 4px;
-  animation-delay: 0.4s;
-}
+.slide-fade-enter-active { transition: all 0.3s ease-out; }
+.slide-fade-enter-from { transform: translateX(20px); }
 
-.fade-enter-active {
-  transition: opacity 0.5s;
+.msg-icon-fade-enter-active { 
+  transition: transform 0.5s cubic-bezier(0.64, 0.57, 0.67, 1.53), opacity 0.5s ease-in-out; 
 }
+.msg-icon-fade-enter-from { transform: translateY(15px); opacity: 0; }
 
-.fade-leave-active {
-  transition: opacity 0;
-}
+.msg-name-fade-enter-active { transition: opacity 0.5s ease-in-out; transition-delay: 0.25s; }
+.msg-name-fade-enter-from { opacity: 0; }
 
-.fade-enter-from {
-  opacity: 0;
-}
-
-.fade-enter-to {
-  opacity: 1;
-}
-
-.slide-fade-enter-active {
-  transition: all 0.3s ease-out;
-}
-
-.slide-fade-enter-from {
-  transform: translateX(20px);
-}
-
-.msg-icon-fade-enter-active {
-  transition: transform 0.5s cubic-bezier(0.64, 0.57, 0.67, 1.53),
-    opacity 0.5s ease-in-out;
-}
-
-.msg-icon-fade-enter-from {
-  transform: translateY(15px);
-  opacity: 0;
-}
-
-.msg-name-fade-enter-active {
-  transition: opacity 0.5s ease-in-out;
-  transition-delay: 0.25s;
-}
-
-.msg-name-fade-enter-from {
-  opacity: 0;
-}
-
-.msg-content-fade-enter-active {
-  transition: opacity 0.25s ease-in-out, background-size 0.25s ease-in-out;
-}
-
-.msg-content-fade-enter-from {
-  opacity: 0;
-  background-size: 90% 100%;
-}
+.msg-content-fade-enter-active { transition: opacity 0.25s ease-in-out, background-size 0.25s ease-in-out; }
+.msg-content-fade-enter-from { opacity: 0; background-size: 90% 100%; }
 
 .input-area {
   display: flex;
@@ -1287,5 +1280,58 @@ export default {
   background-color: #6a7b8c;
   transform: scale(1.05);
   opacity: 0.8;
+}
+
+/* Modal 样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 500px;
+  text-align: center;
+}
+.avatar-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+.avatar-option {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin: 10px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.avatar-option:hover {
+  transform: scale(1.1);
+}
+.modal-close {
+  margin-top: 20px;
+  padding: 8px 16px;
+  background: #ccc;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.3s;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
 }
 </style>
