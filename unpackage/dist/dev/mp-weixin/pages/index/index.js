@@ -384,7 +384,7 @@ const _sfc_main = {
             messages: [
               {
                 role: "system",
-                content: "请扮演游戏《崩坏：星穹铁道》中的开拓者，一名性格古怪、幽默风趣的冒险者。请站在我们的角度，给出一个简短建议，回复不超过25字。"
+                content: "请扮演开拓者，一名性格独特、行为古怪、充满幽默感，擅长用风趣、略显脱线的方式回应他人，偶尔会发表让人无语的言论，或做出让旁人震惊的举动，尽管行为上时常离谱，但在关键时刻依然是可靠的伙伴，拥有坚定的意志和不容小觑的实力。回复不超过25字"
               },
               ...conversation.map((msg) => ({
                 role: msg.role,
@@ -415,9 +415,6 @@ const _sfc_main = {
                   suggestion = content;
                 }
               }
-              if (suggestion.length > 25) {
-                suggestion = suggestion.substring(0, 25);
-              }
               resolve(suggestion);
             } else {
               console.error("Single suggestion API返回数据不符合预期:", res);
@@ -433,7 +430,7 @@ const _sfc_main = {
     },
     // ------------------- 并发生成多个建议 -------------------
     async generateMultipleSuggestions(conversation) {
-      const suggestionCount = 2;
+      const suggestionCount = 3;
       const promises = [];
       for (let i = 0; i < suggestionCount; i++) {
         promises.push(this.fetchSingleSuggestion(conversation));
@@ -462,7 +459,7 @@ const _sfc_main = {
             messages: [
               {
                 role: "system",
-                content: `你是一个对话助手，请根据上下文给出2~3个简短建议，输出必须是标准 JSON 数组，例如：["建议1","建议2"]。`
+                content: `请扮演开拓者，性格独特、行为古怪、充满幽默感，擅长用风趣、略显脱线的方式回应他人，偶尔会发表让人无语的言论，或做出让旁人震惊的举动，尽管行为上时常离谱，但在关键时刻依然是可靠的伙伴，拥有坚定的意志和不容小觑的实力。回复不超过25字`
               },
               ...conversation.map((msg) => ({
                 role: msg.role,
